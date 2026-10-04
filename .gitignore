@@ -39,3 +39,6 @@ dist-ssr
 /.aws/
 /.codex/
 /.agents/
+
+# Internal project documentation (keep locally only)
+/V3_DOCUMENTATION.md
