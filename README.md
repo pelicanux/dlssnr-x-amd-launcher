@@ -16,20 +16,6 @@ Uma interface gráfica para organizar sua biblioteca, configurar o modelo de IA 
 
 Exemplo da biblioteca em modo grid, com a interface em português. Os jogos e as capas exibidos variam conforme a biblioteca do usuário.
 
-## Recursos
-
-- Biblioteca com jogos da Steam, do Heroic e de diretórios adicionados manualmente.
-- Visualização em grid ou lista, busca e categorias recolhíveis.
-- Setup inicial para escolher o backend e fornecer o arquivo `dlssnr.bin` ou extrair o modelo de uma DLL fornecida pelo usuário.
-- Rotas de instalação OptiScaler, ReShade, Vulkan/DX9 e DX9 clássico, conforme os arquivos e a compatibilidade do backend escolhido.
-- Instalação, reparo, atualização e remoção do mod, com acesso aos logs.
-- Informações de plataforma, arquitetura, API gráfica e estado da instalação do jogo.
-- Capas locais do Heroic, buscas em catálogos online e substituição manual persistente das capas.
-- Interface em português e inglês, escala ajustável e modos Elegante e Desempenho.
-- Verificação de atualizações do launcher e atualização dos backends em menus separados.
-
-A primeira abertura faz a descoberta dos jogos. Nas seguintes, a biblioteca é carregada do cache; use **Escanear** para renovar a lista. **Limpar cache**, nas preferências, remove as informações de análise dos jogos para que sejam verificadas novamente, preservando a biblioteca, as capas e os arquivos do mod.
-
 ## Download e instalação
 
 Os pacotes ficam nas **[Releases do repositório de distribuição](https://github.com/pelicanux/dlssnr-x-amd-launcher/releases)**. Este repositório contém o código-fonte do launcher.
