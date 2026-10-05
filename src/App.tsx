@@ -23,7 +23,7 @@ import { InstallAction } from "./components/InstallAction";
 import { ResultModal } from "./components/ResultModal";
 import { UninstallModal } from "./components/UninstallModal";
 import { LauncherUpdateIndicator } from "./components/LauncherUpdateIndicator";
-import { checkLauncherUpdateOnStartup, type LauncherUpdateInfo, type LauncherUpdateStatus } from "./services/launcherUpdates";
+import { checkLauncherUpdateOnStartup, type LauncherDownloadProgress, type LauncherUpdateInfo, type LauncherUpdateStatus } from "./services/launcherUpdates";
 import { AppUpdateModal } from "./components/AppUpdateModal";
 import { BackendUpdaterModal } from "./components/BackendUpdaterModal";
 import { LoadingModal } from "./components/LoadingModal";
@@ -77,6 +77,7 @@ function App() {
   const [modalType, setModalType] = useState<"success" | "error">("success");
 
   const [showAppUpdate, setShowAppUpdate] = useState(false);
+  const [launcherDownloadProgress, setLauncherDownloadProgress] = useState<LauncherDownloadProgress | null>(null);
   const [launcherUpdateInfo, setLauncherUpdateInfo] = useState<LauncherUpdateInfo | null>(null);
   const [launcherUpdateStatus, setLauncherUpdateStatus] = useState<LauncherUpdateStatus>("checking");
   useEffect(() => {
@@ -471,7 +472,7 @@ function App() {
         <TitleBar 
           onShowCredits={() => setShowCreditsModal(true)} 
           disabled={hasOpenDialog}
-          updateIndicator={<LauncherUpdateIndicator status={launcherUpdateStatus} disabled={hasOpenDialog}
+          updateIndicator={<LauncherUpdateIndicator status={launcherUpdateStatus} disabled={hasOpenDialog} downloadProgress={launcherDownloadProgress}
             onOpen={() => { setShowSettings(false); setShowAppUpdate(true); }} />}
           settingsMenu={
             <div style={{ position: "relative" }} ref={settingsRef}>
@@ -887,7 +888,7 @@ function App() {
       />
     )}
 
-    {showAppUpdate && <AppUpdateModal initialInfo={launcherUpdateInfo ?? undefined} onClose={() => setShowAppUpdate(false)} />}
+    {showAppUpdate && <AppUpdateModal onDownloadProgress={setLauncherDownloadProgress} initialInfo={launcherUpdateInfo ?? undefined} onClose={() => setShowAppUpdate(false)} />}
 
     {showUpdaterModal && (
       <BackendUpdaterModal 

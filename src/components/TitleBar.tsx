@@ -60,8 +60,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({ onShowCredits, settingsMenu,
 
       {/* Right section: Links and Window Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '100%' }}>
+        {updateIndicator}
         <div inert={disabled} style={{ display: 'flex', alignItems: 'center', opacity: disabled ? 0.3 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
-          {updateIndicator}
           {settingsMenu && (
             <div data-tauri-drag-region="false" style={{ display: 'flex', alignItems: 'center' }}>
               {settingsMenu}

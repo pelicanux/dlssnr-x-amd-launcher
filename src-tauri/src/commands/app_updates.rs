@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{io::{Read, Write}, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, Ordering}}, time::Duration};
+use std::{io::{Read, Write}, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, Ordering}}, time::{Duration, Instant}};
 use tauri::{Emitter, Manager};
 
 const API: &str = "https://api.github.com/repos/pelicanux/dlssnr-x-amd-launcher/releases/latest";
@@ -68,6 +68,9 @@ pub async fn check_launcher_update() -> Result<UpdateInfo, String> {
     }
     Ok(info)
 }
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgress { percent: u64, bytes_per_second: f64, received: u64, total: u64 }
 struct BusyGuard<'a>(&'a AtomicBool);
 impl Drop for BusyGuard<'_> { fn drop(&mut self) { self.0.store(false, Ordering::Release); } }
 #[tauri::command]
@@ -89,14 +92,22 @@ pub async fn download_launcher_update(app: tauri::AppHandle, state: tauri::State
         let mut file = std::fs::File::create(&partial).map_err(|_| "download".to_string())?;
         let mut hash = Sha256::new();
         let mut received = 0u64;
-        let mut last_percent = 101u64;
+        let mut sampled_at = Instant::now();
+        let mut sampled_bytes = 0u64;
+        let _ = app.emit("launcher-download-progress", DownloadProgress { percent: 0, bytes_per_second: 0.0, received: 0, total: asset.size });
         while let Some(chunk) = response.chunk().await.map_err(|_| "network".to_string())? {
             received += chunk.len() as u64;
             if received > asset.size { return Err("checksum".into()); }
             file.write_all(&chunk).map_err(|_| "download".to_string())?;
             hash.update(&chunk);
             let percent = received.saturating_mul(100) / asset.size.max(1);
-            if percent != last_percent { let _ = app.emit("launcher-download-progress", percent); last_percent = percent; }
+            // Sample by time, so speed updates even when the integer percentage stays unchanged.
+            let elapsed = sampled_at.elapsed();
+            if elapsed >= Duration::from_millis(250) || received == asset.size {
+                let bytes_per_second = (received - sampled_bytes) as f64 / elapsed.as_secs_f64().max(0.001);
+                let _ = app.emit("launcher-download-progress", DownloadProgress { percent, bytes_per_second, received, total: asset.size });
+                sampled_at = Instant::now(); sampled_bytes = received;
+            }
         }
         file.sync_all().map_err(|_| "download".to_string())?;
         if received != asset.size || format!("{:x}", hash.finalize()) != expected { return Err("checksum".into()); }

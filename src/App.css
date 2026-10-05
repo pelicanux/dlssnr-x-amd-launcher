@@ -1086,3 +1086,16 @@ body { height: 100dvh; min-height: 0; }
 .launcher-update-popover button { width: 100%; padding: 9px 11px; background: transparent; border: 0; border-radius: 5px; text-align: left; color: #e2e8f0; font-size: .85rem; }
 .launcher-update-popover button:hover, .launcher-update-popover button:focus-visible { background: rgba(237,28,36,.12); color: #ff6570; }
 @media (prefers-reduced-motion: reduce) { .launcher-update-ring, .performance-mode .launcher-update-ring { animation-duration: 2s !important; } }
+
+.launcher-update-downloading .launcher-update-button { color: #fff; opacity: 1; }
+.launcher-download-ring { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; transform: translate(-50%, -50%); pointer-events: none; }
+.download-progress-ring { display: block; }
+.download-progress-track { opacity: .18; }
+.download-progress-fill { transition: stroke-dashoffset .25s linear; }
+.launcher-download-speed { position: absolute; top: calc(100% - 1px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 8px; line-height: 10px; color: #cbd5e1; font-variant-numeric: tabular-nums; pointer-events: none; }
+.app-update-download-status { display: flex; align-items: center; gap: 16px; margin: 18px 0; color: #f1f5f9; }
+.app-update-download-ring { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
+.app-update-download-ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.app-update-download-status p { margin: 0 0 5px; }
+.app-update-download-status small { color: #94a3b8; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .download-progress-fill { transition: none; } }

@@ -6,9 +6,11 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useI18n } from "../i18n/I18nContext";
 import { APP_BUILD_LABEL } from "../services/buildInfo";
 
-import type { LauncherUpdateInfo } from "../services/launcherUpdates";
-export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; initialInfo?: LauncherUpdateInfo }) {
-  const { t } = useI18n();
+import { DownloadProgressRing } from "./DownloadProgressRing";
+import { formatDownloadSpeed } from "../services/launcherUpdates";
+import type { LauncherDownloadProgress, LauncherUpdateInfo } from "../services/launcherUpdates";
+export function AppUpdateModal({ onClose, initialInfo, onDownloadProgress }: { onClose: () => void; initialInfo?: LauncherUpdateInfo; onDownloadProgress?: (progress: LauncherDownloadProgress | null) => void }) {
+  const { t, language } = useI18n();
   const [info, setInfo] = useState<LauncherUpdateInfo | null>(initialInfo ?? null);
   const [confirming, setConfirming] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -16,7 +18,9 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<number | null>(initialInfo?.preferred ?? null);
   const [downloaded, setDownloaded] = useState("");
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState<LauncherDownloadProgress>({ percent: 0, bytesPerSecond: 0, received: 0, total: 0 });
+  const downloadActive = useRef(false);
+  const progressListener = useRef<Promise<() => void> | null>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const errorText = (error: unknown) => {
     const code = String(error);
@@ -28,16 +32,21 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
     if (!initialInfo) invoke<LauncherUpdateInfo>("check_launcher_update").then(result => {
       if (active) { setInfo(result); setSelected(result.preferred); }
     }).catch(e => { if (active) setError(errorText(e)); }).finally(() => { if (active) setBusy(false); });
-    const unsubscribe = listen<number>("launcher-download-progress", e => { if (active) setProgress(e.payload); }).catch(() => () => {});
+    const unsubscribe = listen<LauncherDownloadProgress>("launcher-download-progress", e => {
+      if (active && downloadActive.current) { setProgress(e.payload); onDownloadProgress?.(e.payload); }
+    }).catch(() => () => {});
+    progressListener.current = unsubscribe;
     dialog.current?.focus();
     return () => { active = false; void unsubscribe.then(stop => stop()); };
   }, []);
   const download = async () => {
     if (selected === null) return;
-    setBusy(true); setError(""); setProgress(0); setDownloaded("");
-    try { setDownloaded(await invoke<string>("download_launcher_update", { assetId: selected })); }
+    const initialProgress = { percent: 0, bytesPerSecond: 0, received: 0, total: info?.packages.find(p => p.id === selected)?.size ?? 0 };
+    downloadActive.current = true;
+    setBusy(true); setError(""); setProgress(initialProgress); setDownloaded(""); onDownloadProgress?.(initialProgress);
+    try { await progressListener.current; setDownloaded(await invoke<string>("download_launcher_update", { assetId: selected })); }
     catch (e) { setError(errorText(e)); }
-    finally { setBusy(false); }
+    finally { downloadActive.current = false; onDownloadProgress?.(null); setBusy(false); }
   };
   useEffect(() => { dialog.current?.focus(); }, [confirming]);
   const apply = async () => {
@@ -85,7 +94,11 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
             {!canApply && <p className="app-update-muted">{t("launcherUpdate", "manualInstall")}</p>}
           </>}
         </>}
-        {busy && info && <div><p>{applying ? t("launcherUpdate", "applying") : `${t("launcherUpdate", "downloading")} ${progress}%`}</p>{!applying && <progress max={100} value={progress}/>}</div>}
+        {busy && info && (applying ? <p>{t("launcherUpdate", "applying")}</p> :
+          <div className="app-update-download-status" role="progressbar" aria-label={t("launcherUpdate", "downloading")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}>
+            <div className="app-update-download-ring"><DownloadProgressRing percent={progress.percent} size={56}/><span>{progress.percent}%</span></div>
+            <div><p>{t("launcherUpdate", "downloading")}</p><small>{formatDownloadSpeed(progress.bytesPerSecond, language)}</small></div>
+          </div>)}
         {!!downloaded && <p>{t("launcherUpdate", "ready")}</p>}
         {error && <p className="app-update-error" role="alert">{error}</p>}
       </div>
