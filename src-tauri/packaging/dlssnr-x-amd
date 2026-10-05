@@ -1,0 +1,3 @@
+#!/bin/sh
+# Keep existing terminal commands working while the application lives in /opt.
+exec /opt/dlssnr-x-amd/dlssnr-x-amd "$@"

@@ -35,8 +35,8 @@
     "active": true,
     "targets": "all",
     "category": "Game",
-    "shortDescription": "Configura\u00e7\u00e3o do DLSS Neural Rendering para AMD Linux",
-    "longDescription": "Configura\u00e7\u00e3o do DLSS Neural Rendering para AMD Linux",
+    "shortDescription": "Configuração do DLSS Neural Rendering para AMD Linux",
+    "longDescription": "Configuração do DLSS Neural Rendering para AMD Linux",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -44,6 +44,18 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": []
+    "resources": [],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "packaging/launcher.desktop",
+        "files": {
+          "/usr/bin/dlssnr-x-amd": "packaging/dlssnr-x-amd"
+        }
+      },
+      "rpm": {
+        "desktopTemplate": "packaging/launcher.desktop",
+        "files": {}
+      }
+    }
   }
 }

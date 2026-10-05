@@ -59,6 +59,7 @@ Requirements:
 
 - Rust and Cargo.
 - Bun, used by the development and build commands configured in the project.
+- To build RPM packages, `rpm`, `rpmbuild`, and `cpio` (in the build environment or on the Distrobox host).
 - Linux development libraries required by Tauri 2. See the [official prerequisites for your distribution](https://v2.tauri.app/start/prerequisites/#linux).
 
 ```bash
@@ -79,6 +80,8 @@ Or build only the AppImage:
 ```bash
 bun run tauri build --bundles appimage
 ```
+
+DEB and RPM packages install the executable in `/opt/dlssnr-x-amd/dlssnr-x-amd`. The `/usr/bin/dlssnr-x-amd` command is a small wrapper that launches this executable. GTK and WebKitGTK remain system dependencies. Updating asks for confirmation in the launcher before installing the package and restarting.
 
 Packages are generated in `src-tauri/target/release/bundle/`, under the `appimage`, `deb`, and `rpm` subdirectories. When using `bun run tauri build` (including `--bundles appimage`), newly generated packages and the executable are also copied automatically to `release/` at the project root for local use.
 

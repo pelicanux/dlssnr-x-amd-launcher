@@ -10,6 +10,7 @@ import type { LauncherUpdateInfo } from "../services/launcherUpdates";
 export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; initialInfo?: LauncherUpdateInfo }) {
   const { t } = useI18n();
   const [info, setInfo] = useState<LauncherUpdateInfo | null>(initialInfo ?? null);
+  const [confirming, setConfirming] = useState(false);
   const [applying, setApplying] = useState(false);
   const [busy, setBusy] = useState(!initialInfo);
   const [error, setError] = useState("");
@@ -38,7 +39,9 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
     catch (e) { setError(errorText(e)); }
     finally { setBusy(false); }
   };
+  useEffect(() => { dialog.current?.focus(); }, [confirming]);
   const apply = async () => {
+    setConfirming(false);
     setBusy(true); setApplying(true); setError("");
     try { await invoke("restart_launcher_update"); }
     catch (e) { setError(errorText(e)); setBusy(false); setApplying(false); }
@@ -50,7 +53,7 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
 
   return createPortal(<div className="modal-overlay" style={{ zIndex: 3000 }}>
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="launcher-update-title" className="modal-content dialog-glass app-update-dialog" onKeyDown={e => {
-      if (e.key === "Escape" && !busy) { e.stopPropagation(); onClose(); }
+      if (e.key === "Escape" && !busy) { e.stopPropagation(); if (confirming) setConfirming(false); else onClose(); }
       if (e.key === "Tab") {
         const items = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), [tabindex="0"]');
         if (!items?.length) { e.preventDefault(); return; }
@@ -59,7 +62,14 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
         else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { e.preventDefault(); first.focus(); }
       }
     }}>
-      <h2 id="launcher-update-title">{t("launcherUpdate", "title")}</h2>
+      <h2 id="launcher-update-title">{t("launcherUpdate", confirming ? "confirmTitle" : "title")}</h2>
+      {confirming ? <>
+        <p className="app-update-confirmation">{t("launcherUpdate", extension === ".appimage" ? "confirmAppImage" : "confirmPackage")}</p>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={() => setConfirming(false)}>{t("launcherUpdate", "later")}</button>
+          <button className="btn btn-primary" onClick={apply}>{t("launcherUpdate", "installNow")}</button>
+        </div>
+      </> : <>
       <p className="app-update-muted">{t("launcherUpdate", "current")} {APP_BUILD_LABEL}</p>
       <div aria-live="polite">
         {!info && !error && <p>{t("launcherUpdate", "checking")}</p>}
@@ -83,8 +93,9 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
         <button className="btn btn-secondary" disabled={busy} onClick={async () => { try { await openUrl("https://github.com/pelicanux/dlssnr-x-amd-launcher/releases"); } catch { setError(t("launcherUpdate", "network")); } }}>{t("launcherUpdate", "releases")}</button>
         <button className="btn btn-secondary" disabled={busy} onClick={onClose}>{t("launcherUpdate", "close")}</button>
         {!!downloaded && canApply && <button className="btn btn-secondary" disabled={busy} onClick={showFile}>{t("launcherUpdate", "showFile")}</button>}
-        {info?.available && !!info.packages.length && (!downloaded ? <button className="btn btn-primary" disabled={busy} onClick={download}>{t("launcherUpdate", "downloadButton")}</button> : <button className="btn btn-primary" disabled={busy} onClick={canApply ? apply : showFile}>{t("launcherUpdate", canApply ? "restart" : "showFile")}</button>)}
+        {info?.available && !!info.packages.length && (!downloaded ? <button className="btn btn-primary" disabled={busy} onClick={download}>{t("launcherUpdate", "downloadButton")}</button> : <button className="btn btn-primary" disabled={busy} onClick={canApply ? () => setConfirming(true) : showFile}>{t("launcherUpdate", canApply ? "restart" : "showFile")}</button>)}
       </div>
+      </>}
     </div>
   </div>, document.body);
 }
