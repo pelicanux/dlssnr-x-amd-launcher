@@ -14,5 +14,10 @@ export type LauncherUpdateStatus = "checking" | "available" | "current" | "error
 // Reuse the startup request across React effect remounts and the update dialog.
 let startupCheck: Promise<LauncherUpdateInfo> | undefined;
 export function checkLauncherUpdateOnStartup() {
-  return startupCheck ??= invoke<LauncherUpdateInfo>("check_launcher_update");
+  return startupCheck ??= (async () => {
+    // Keep startup feedback visible even when GitHub responds before the first frames.
+    const feedback = new Promise<void>(resolve => setTimeout(resolve, 1200));
+    try { return await invoke<LauncherUpdateInfo>("check_launcher_update"); }
+    finally { await feedback; }
+  })();
 }

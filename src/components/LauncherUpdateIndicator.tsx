@@ -36,7 +36,7 @@ export function LauncherUpdateIndicator({ status, disabled, onOpen }: {
       aria-haspopup={available ? "menu" : undefined} aria-expanded={available ? menuOpen : undefined}
       onClick={() => setMenuOpen(open => !open)}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
-      {status === "checking" && <svg className="launcher-update-ring" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="18 58" strokeLinecap="round"/></svg>}
+      {status === "checking" && <span className="launcher-update-ring" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeDasharray="18 58" strokeLinecap="round"/></svg></span>}
       {available && <span className="launcher-update-dot" aria-hidden="true"/>}
     </button>
     <span id="launcher-update-tooltip" role="tooltip" className="launcher-update-tooltip">{tip}</span>

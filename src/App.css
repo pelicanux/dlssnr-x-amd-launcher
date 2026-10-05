@@ -1073,9 +1073,10 @@ body { height: 100dvh; min-height: 0; }
 .launcher-update-indicator { position: relative; display: flex; align-items: center; border-radius: 5px; outline-offset: 2px; }
 .launcher-update-button.btn-titlebar { position: relative; display: flex; align-items: center; justify-content: center; width: 32px; height: 30px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #64748b; }
 .launcher-update-button:disabled { opacity: .6; cursor: default; }
-.launcher-update-available .launcher-update-button { color: #cbd5e1; cursor: pointer; }
+.launcher-update-checking .launcher-update-button, .launcher-update-available .launcher-update-button { color: #fff; opacity: 1; background: rgba(255,255,255,.05); }
+.launcher-update-available .launcher-update-button { cursor: pointer; }
 .launcher-update-available .launcher-update-button:hover { background: rgba(255,255,255,.07); color: #ff6570; }
-.launcher-update-ring { position: absolute; top: 50%; left: 50%; pointer-events: none; animation: launcher-update-spin 1s linear infinite; }
+.launcher-update-ring { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; pointer-events: none; animation: launcher-update-spin 1s linear infinite; }
 @keyframes launcher-update-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
 .performance-mode .launcher-update-ring { animation: launcher-update-spin 1s linear infinite !important; }
 .launcher-update-dot { position: absolute; top: 3px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: #ed1c24; box-shadow: 0 0 5px rgba(237,28,36,.45); }
@@ -1084,4 +1085,4 @@ body { height: 100dvh; min-height: 0; }
 .launcher-update-popover { position: absolute; top: calc(100% + 8px); right: 0; min-width: 185px; padding: 5px; border: 1px solid rgba(122,135,171,.3); border-radius: 9px; background: #23232e; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
 .launcher-update-popover button { width: 100%; padding: 9px 11px; background: transparent; border: 0; border-radius: 5px; text-align: left; color: #e2e8f0; font-size: .85rem; }
 .launcher-update-popover button:hover, .launcher-update-popover button:focus-visible { background: rgba(237,28,36,.12); color: #ff6570; }
-@media (prefers-reduced-motion: reduce) { .launcher-update-ring, .performance-mode .launcher-update-ring { animation: none !important; transform: translate(-50%, -50%); } }
+@media (prefers-reduced-motion: reduce) { .launcher-update-ring, .performance-mode .launcher-update-ring { animation-duration: 2s !important; } }
