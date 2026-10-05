@@ -132,10 +132,10 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
 
   if (loading && games.length === 0) {
     return (
-      <div className={`game-grid-container game-library--${viewMode}`} style={{ textAlign: "center", padding: "2rem" }}>
+      <motion.div layoutScroll className={`game-grid-container game-library--${viewMode}`} style={{ textAlign: "center", padding: "2rem" }}>
         <p>{t("app", "scanningGames") || "Scanning your games..."}</p>
         <div className="loading-spinner" style={{ margin: "1rem auto" }}></div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -210,7 +210,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
     }
   };
 
-  const renderCard = (game: GameInfo) => {
+  const renderCardContent = (game: GameInfo) => {
     if (game.path === selectedGamePath) {
       return (
         <div 
@@ -322,6 +322,15 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
   );
   };
 
+  // Project the whole cell (including its background) when the details panel resizes.
+  // The inner div remains responsible for mouse tilt; it never competes with layout transforms.
+  const renderCard = (game: GameInfo) => (
+    <motion.div key={game.path} className="library-card-cell" layout={performanceMode ? false : "position"}
+      transition={{ layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] } }}>
+      {renderCardContent(game)}
+    </motion.div>
+  );
+
   const filteredGames = games.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const steamGames = filteredGames.filter(g => g.launcher === "Steam");
   const otherGames = filteredGames.filter(g => g.launcher !== "Steam");
@@ -396,7 +405,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
         </div>
       </div>
 
-      <div className={`game-grid-container game-library--${viewMode}`} style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: "0.5rem", marginTop: "1rem" }}>
+      <motion.div layoutScroll className={`game-grid-container game-library--${viewMode}`} style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: "0.5rem", marginTop: "1rem" }}>
         {steamGames.length > 0 && (
           <div style={{ marginBottom: "1.5rem" }}>
             <div 
@@ -472,7 +481,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
             </div>
           ));
         })()}
-      </div>
+      </motion.div>
       {contextMenu && (
       <CoverContextMenuPanel x={contextMenu.x} y={contextMenu.y}>
         <SteamGridCoverHint />          <button

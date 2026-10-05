@@ -133,6 +133,7 @@ export const translations = {
       attention: "Atenção"
     },
     bitness: {
+      recommended: "Recomendado",
       title: "Arquitetura do Jogo",
       x64: "64-bits",
       x64desc: "(Atuais)",
@@ -301,6 +302,14 @@ export const translations = {
       scanLibrary: "Escanear Biblioteca"
     },
     setupWizard: {
+      gpuChecking: "Detectando GPU…",
+      gpuDetected: "GPU detectada",
+      gpuUnknown: "Não foi possível identificar uma placa compatível. Tente detectar novamente.",
+      gpuIncompatible: "Placa incompatível. Esta configuração requer uma Radeon RX 7000 ou RX 9000.",
+      gpuRetry: "Detectar novamente",
+      recommended: "Recomendado",
+      gpuRecommendation: "Backend recomendado",
+
       title: "Configuração Inicial",
       subtitle: "Qual versão o launcher deve instalar por padrão nos seus jogos?",
       rdna4Desc: "Modelo principal otimizado para placas AMD modernas (RDNA 4).",
@@ -457,6 +466,7 @@ export const translations = {
       attention: "Attention"
     },
     bitness: {
+      recommended: "Recommended",
       title: "Game Architecture",
       x64: "64-bit",
       x64desc: "(Modern)",
@@ -625,6 +635,14 @@ export const translations = {
       scanLibrary: "Scan Library"
     },
     setupWizard: {
+      gpuChecking: "Detecting GPU…",
+      gpuDetected: "Detected GPU",
+      gpuUnknown: "Could not identify a compatible GPU. Try detecting again.",
+      gpuIncompatible: "Incompatible GPU. This setup requires a Radeon RX 7000 or RX 9000.",
+      gpuRetry: "Detect again",
+      recommended: "Recommended",
+      gpuRecommendation: "Recommended backend",
+
       title: "Initial Setup",
       subtitle: "Which version should the launcher install by default in your games?",
       rdna4Desc: "Main model optimized for modern AMD GPUs (RDNA 4).",

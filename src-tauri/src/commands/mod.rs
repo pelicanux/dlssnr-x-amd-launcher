@@ -9,3 +9,5 @@ mod heroic_library;
 mod store_artwork;
 
 pub mod app_updates;
+
+pub mod gpu;

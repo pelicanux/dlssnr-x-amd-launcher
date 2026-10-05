@@ -19,6 +19,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::gpu::detect_linux_gpus,
             commands::app_updates::check_launcher_update,
             commands::app_updates::download_launcher_update,
             commands::app_updates::restart_launcher_update,

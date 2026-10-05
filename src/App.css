@@ -1099,3 +1099,14 @@ body { height: 100dvh; min-height: 0; }
 .app-update-download-status p { margin: 0 0 5px; }
 .app-update-download-status small { color: #94a3b8; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .download-progress-fill { transition: none; } }
+
+/* The Wizard workflow is a fieldset so unsupported hardware disables all controls. */
+.setup-wizard fieldset .model-source-panel { height: auto; }
+.setup-wizard fieldset:disabled .backend-option { cursor: not-allowed !important; }
+
+.library-card-cell { position: relative; min-width: 0; }
+.game-collection--grid .library-card-cell { aspect-ratio: 2 / 3; }
+.game-collection--grid .library-card-cell > .library-game-card { height: 100%; }
+.game-collection--grid .library-cover-thumbnail { width: 100%; height: 100%; }
+
+.library-card-cell:hover { z-index: 5; }

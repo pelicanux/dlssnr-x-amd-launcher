@@ -67,15 +67,32 @@ pub struct GameInstallationDetails {
 }
 
 fn details_in_directory(dir: &std::path::Path) -> GameInstallationDetails {
-    let status = if ["OptiScaler.dll", "OptiScaler.ini", "dlssnr_core.dll", "nvngx.dll_dlssnr.dll", "nvngx.dll"].iter().any(|name| dir.join(name).is_file()) {
-        "OptiScaler"
-    } else if ["vulkan-1.dll", "winevulkan.dll"].iter().any(|name| dir.join(name).is_file()) {
-        "Vulkan/DX9"
-    } else if ["dxgi.dll", "d3d9.dll", "ReShade64.dll", "ReShade32.dll"].iter().any(|name| dir.join(name).is_file()) {
-        "ReShade"
-    } else { "Não Instalado" };
+    let has = |names: &[&str]| names.iter().any(|name| dir.join(name).is_file());
+    // Proxy DLL names alone are not evidence: games, DXVK and other tools ship them too.
+    let optiscaler = has(&["OptiScaler.dll", "OptiScaler.ini", "dlssnr_core.dll", "nvngx.dll_dlssnr.dll", "nvngx_dlssnr.dll"]);
+    let addon = has(&["dlssnr_amd.addon64", "dlssnr_amd.addon32"]);
+    let manifest = dir.join("dlssnr-amd-install.txt").is_file()
+        && dir.join("dlssnr-amd/dlssnr.bin").is_file();
     let proxy_names = ["vulkan-1.dll", "winevulkan.dll", "dxgi.dll", "d3d9.dll", "winmm.dll", "version.dll", "d3d12.dll", "d3d11.dll", "dinput8.dll", "ReShade64.dll", "ReShade32.dll", "OptiScaler.dll"];
-    let installed_dll = proxy_names.iter().find(|name| dir.join(name).is_file()).map(|name| (*name).to_string());
+    // Prefer the loader recorded by the installer over similarly named original game DLLs.
+    use std::io::Read;
+    let mut recorded_files = String::new();
+    if let Ok(file) = std::fs::File::open(dir.join("dlssnr-amd-install.txt")) {
+        let _ = file.take(64 * 1024).read_to_string(&mut recorded_files);
+    }
+    let proxy = proxy_names.iter().find(|name| dir.join(name).is_file()
+        && recorded_files.lines().any(|line| line.trim() == **name))
+        .or_else(|| proxy_names.iter().find(|name| dir.join(name).is_file()));
+    let status = if proxy.is_none() || !(optiscaler || addon || manifest) {
+        "Não Instalado"
+    } else if optiscaler {
+        "OptiScaler"
+    } else if matches!(proxy.copied(), Some("vulkan-1.dll" | "winevulkan.dll")) {
+        "Vulkan/DX9"
+    } else {
+        "ReShade"
+    };
+    let installed_dll = if status == "Não Instalado" { None } else { proxy.map(|name| (*name).to_string()) };
     GameInstallationDetails { status: status.to_string(), installed_dll }
 }
 
@@ -233,6 +250,39 @@ mod installation_details_tests {
             assert_eq!(removed.installed_dll, None);
             std::fs::remove_dir_all(root).unwrap();
         }
+    }
+    #[test]
+    fn generic_game_dlls_and_stale_configs_do_not_identify_a_mod() {
+        let root = std::env::temp_dir().join(format!("dlssnr-unmodified-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        for name in ["dxgi.dll", "d3d9.dll", "nvngx.dll", "vulkan-1.dll", "winevulkan.dll", "ReShade64.dll", "ReShade.ini", "dlssnr-amd-install.txt"] {
+            std::fs::write(root.join(name), b"game component").unwrap();
+            let details = installation_details(root.to_str().unwrap());
+            assert_eq!(details.status, "Não Instalado", "false positive from {name}");
+            assert_eq!(details.installed_dll, None);
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn manifest_loader_takes_precedence_over_original_game_dlls() {
+        let root = std::env::temp_dir().join(format!("dlssnr-loader-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        for name in ["vulkan-1.dll", "dxgi.dll", "dlssnr_amd.addon64"] {
+            std::fs::write(root.join(name), b"component").unwrap();
+        }
+        std::fs::write(root.join("dlssnr-amd-install.txt"), "dxgi.dll\ndlssnr_amd.addon64\n").unwrap();
+        let details = installation_details(root.to_str().unwrap());
+        assert_eq!(details.status, "ReShade");
+        assert_eq!(details.installed_dll.as_deref(), Some("dxgi.dll"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn addon_without_loader_is_not_a_complete_installation() {
+        let root = std::env::temp_dir().join(format!("dlssnr-partial-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("dlssnr_amd.addon64"), b"mod").unwrap();
+        assert_eq!(installation_details(root.to_str().unwrap()).status, "Não Instalado");
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn finds_mod_and_proxy_together() {

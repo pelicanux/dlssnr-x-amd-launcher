@@ -16,6 +16,8 @@ export interface AppConfig {
   custom_game_paths?: Record<string, string>;
 }
 
+interface DetectedGpu { model: string; pciAddress: string; backend: "rdna3" | "rdna4" | null; primary: boolean; }
+
 interface Props {
   onComplete: (config: AppConfig) => void;
   allowCancel?: boolean;
@@ -37,6 +39,25 @@ interface BackendVersionStatus {
 export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel }) => {
   const { t, language, setLanguage } = useI18n();
   const [gpuArch, setGpuArch] = useState<"rdna4" | "rdna3">("rdna4");
+  const [gpus, setGpus] = useState<DetectedGpu[]>([]);
+  const [detectingGpu, setDetectingGpu] = useState(true);
+  const [gpuRevision, setGpuRevision] = useState(0);
+  const recommendedGpu = gpus.find(gpu => gpu.backend);
+  const gpuCompatible = !detectingGpu && !!recommendedGpu;
+
+  useEffect(() => {
+    let active = true;
+    setDetectingGpu(true);
+    invoke<DetectedGpu[]>("detect_linux_gpus").then(result => {
+      if (!active) return;
+      setGpus(result);
+      const recommended = result.find(gpu => gpu.backend)?.backend;
+      if (recommended) setGpuArch(recommended);
+    }).catch(() => { if (active) setGpus([]); })
+      .finally(() => { if (active) setDetectingGpu(false); });
+    return () => { active = false; };
+  }, [gpuRevision]);
+
   const [modelSource, setModelSource] = useState<ModelSource>("bin");
   const [dllPath, setDllPath] = useState("");
   const [binPath, setBinPath] = useState("");
@@ -55,26 +76,27 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
   const [extractingDll, setExtractingDll] = useState(false);
 
   useEffect(() => {
-    // Left intentionally empty as extraction happens in handleSave now
-  }, [dllPath, gpuArch, modelSource]);
-
-  useEffect(() => {
-    invoke<string>("check_cached_bin", { bitness: "64", gpuArch })
-      .then(path => {
-        if (path) {
-          setHasCachedBin(true);
-          setBinPath(path);
-        }
-      })
+    let active = true;
+    setHasCachedBin(false);
+    setBinPath("");
+    if (!gpuCompatible) return;
+    invoke<string | null>("check_cached_bin", { bitness: "64", gpuArch })
+      .then(path => { if (active && path) { setHasCachedBin(true); setBinPath(path); } })
       .catch(() => {});
-  }, [gpuArch]);
+    return () => { active = false; };
+  }, [gpuArch, gpuCompatible]);
 
   useEffect(() => {
+    let active = true;
+    setVersionStatus(null);
+    setDownloadComplete(false);
+    if (!gpuCompatible) return;
     const checkVersion = async () => {
       setCheckingVersion(true);
       setDownloadComplete(false);
       try {
         const status = await invoke<BackendVersionStatus>("check_backend_version", { gpuArch });
+        if (!active) return;
         setVersionStatus(status);
         if (status.current && !status.needs_update) {
           setDownloadComplete(true);
@@ -84,7 +106,7 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
       } catch (err) {
         console.error("Failed to check version:", err);
       } finally {
-        setCheckingVersion(false);
+        if (active) setCheckingVersion(false);
       }
     };
     checkVersion();
@@ -103,12 +125,13 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
     });
 
     return () => {
-      unlisten.then(f => f());
+      active = false;
+      unlisten.then(f => f()).catch(() => {});
     };
-  }, [gpuArch]);
+  }, [gpuArch, gpuCompatible]);
 
   const handleDownload = async () => {
-    if (isDownloading) return;
+    if (!gpuCompatible || isDownloading) return;
     
     setIsDownloading(true);
     setProgressPct(0);
@@ -141,6 +164,7 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
   };
 
   const handleLocalFolder = async () => {
+    if (!gpuCompatible) return;
     const path = await openDirectoryPicker(t("setupWizard", "selectLocalFolderPrompt"));
     if (!path) return;
 
@@ -160,6 +184,7 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
   };
 
   const handleSave = async () => {
+    if (!gpuCompatible) return;
     setErrorMsg(null);
     if (!downloadComplete) {
       setErrorMsg(t("setupWizard", "pleaseDownload"));
@@ -279,6 +304,16 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
           {t("setupWizard", "subtitle")}
         </p>
         
+        <div role="status" aria-live="polite" style={{ padding: "1rem", marginBottom: "1.2rem", borderRadius: "10px", border: `1px solid ${gpuCompatible ? "#10b98166" : "#f8717166"}`, background: "rgba(255,255,255,0.03)", color: gpuCompatible ? "#6ee7b7" : "#fca5a5" }}>
+          {detectingGpu ? t("setupWizard", "gpuChecking") : <>
+            {gpus.length > 0 && <div>{t("setupWizard", "gpuDetected")}: {gpus.map(gpu => gpu.model).join(" · ")}</div>}
+            <div style={{ marginTop: "0.4rem" }}>{gpuCompatible
+              ? `${t("setupWizard", "gpuRecommendation")}: ${recommendedGpu?.backend === "rdna4" ? "DLSSNR-AMD (RDNA 4 / RX 9000)" : "DLSSNR-RDNA3 (RDNA 3 / RX 7000)"}`
+              : t("setupWizard", gpus.length ? "gpuIncompatible" : "gpuUnknown")}</div>
+            {!gpuCompatible && <button className="btn btn-secondary" style={{ marginTop: "0.7rem" }} onClick={() => setGpuRevision(value => value + 1)}>{t("setupWizard", "gpuRetry")}</button>}
+          </>}
+        </div>
+        <fieldset disabled={!gpuCompatible} style={{ border: 0, margin: 0, padding: 0, minWidth: 0, opacity: gpuCompatible ? 1 : 0.45 }}>
         <div className="backend-options" style={{ display: "flex", gap: "1.5rem", marginBottom: "1.5rem" }}>
           <div className={`backend-option ${gpuArch === "rdna4" ? "active" : ""}`}
             style={{ 
@@ -287,7 +322,8 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
               background: gpuArch === "rdna4" ? "rgba(237, 28, 36, 0.05)" : "transparent",
               transition: "all 0.2s"
             }}
-            onClick={() => setGpuArch("rdna4")}
+            aria-disabled={!gpuCompatible || isDownloading || loading}
+            onClick={() => { if (gpuCompatible && !isDownloading && !loading) setGpuArch("rdna4"); }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
               <h3 style={{ margin: 0, color: gpuArch === "rdna4" ? "#ED1C24" : "#e2e8f0", fontSize: "1.4rem", fontFamily: "'Rajdhani', sans-serif" }}>DLSSNR-AMD</h3>
@@ -301,6 +337,7 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
             </div>
             <p style={{ fontSize: "0.85rem", color: "#cbd5e1", marginTop: "1rem", lineHeight: "1.5" }}>
               {t("setupWizard", "rdna4Desc")}
+              {recommendedGpu?.backend === "rdna4" && <span style={{ display: "block", color: "#6ee7b7", fontWeight: 600, marginTop: "0.5rem" }}>✓ {t("setupWizard", "recommended")}</span>}
             </p>
           </div>
 
@@ -311,7 +348,8 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
               background: gpuArch === "rdna3" ? "rgba(237, 28, 36, 0.05)" : "transparent",
               transition: "all 0.2s"
             }}
-            onClick={() => setGpuArch("rdna3")}
+            aria-disabled={!gpuCompatible || isDownloading || loading}
+            onClick={() => { if (gpuCompatible && !isDownloading && !loading) setGpuArch("rdna3"); }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
               <h3 style={{ margin: 0, color: gpuArch === "rdna3" ? "#ED1C24" : "#e2e8f0", fontSize: "1.4rem", fontFamily: "'Rajdhani', sans-serif" }}>DLSSNR-RDNA3</h3>
@@ -325,6 +363,7 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
             </div>
             <p style={{ fontSize: "0.85rem", color: "#cbd5e1", marginTop: "1rem", lineHeight: "1.5" }}>
               {t("setupWizard", "rdna3Desc")}
+              {recommendedGpu?.backend === "rdna3" && <span style={{ display: "block", color: "#6ee7b7", fontWeight: 600, marginTop: "0.5rem" }}>✓ {t("setupWizard", "recommended")}</span>}
             </p>
           </div>
         </div>
@@ -447,6 +486,7 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
             </div>
           </button>
         </div>
+        </fieldset>
       </div>
     </div>
   );

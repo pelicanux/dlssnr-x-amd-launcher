@@ -1,7 +1,9 @@
+import { isInstalledMod } from "./services/installationStatus";
 import { CoverContextMenuPanel, SteamGridCoverHint } from "./components/CoverContextMenu";
 import { changeLocalCover, resetGameCover, reportCoverError } from "./services/customCovers";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useAnimatedDetailsHeight } from "./hooks/useAnimatedDetailsHeight";
 import { useGameAnalysis } from "./hooks/useGameAnalysis";
 import { useI18n } from "./i18n/I18nContext";
 import { AnimatePresence, motion } from "framer-motion";
@@ -174,12 +176,6 @@ function App() {
     }
   }, [bitness, route]);
 
-  useEffect(() => {
-    if (gpuArch === "rdna3" && bitness === "32") {
-      setBitness("64");
-    }
-  }, [gpuArch, bitness]);
-
   const installationRequest = useRef(0);
   const refreshInstallationDetails = async (path: string) => {
     const request = ++installationRequest.current;
@@ -193,6 +189,7 @@ function App() {
   };
 
   const handleInstall = async () => {
+    if (gpuArch === "rdna3" && bitness === "32") return;
     if (!gameDir) {
       setShowInstructionsModal(true);
       return;
@@ -232,7 +229,7 @@ function App() {
         await refreshInstallationDetails(gameDir);
       }
 
-      const isRepair = installStatus !== "Não Instalado" && installStatus !== "Nenhum" && installStatus !== "Verificando...";
+      const isRepair = isInstalledMod(installStatus);
       setModalTitle(isRepair ? t("app", "repairSuccessTitle") : t("app", "installSuccessTitle"));
       setModalMessage(isRepair ? t("app", "repairSuccessMsg") : t("app", "installSuccessMsg").replace("{launchOptions}", steamLaunchOptionsForRoute(route)));
       setModalType("success");
@@ -323,6 +320,7 @@ function App() {
   };
 
   const [selectedGame, setSelectedGame] = useState<GameInfo | null>(null);
+  const detailsSize = useAnimatedDetailsHeight(selectedGame?.path, performanceMode);
   const [isCollapsingGame, setIsCollapsingGame] = useState(false);
   const [ambientCoverUrl, setAmbientCoverUrl] = useState<string>();
   useEffect(() => {
@@ -359,6 +357,10 @@ function App() {
     return () => window.removeEventListener("gameInfoCacheCleared", refresh);
   }, []);
   const analysis = useGameAnalysis(selectedGame?.path, selectedGame?.name, selectedGame?.app_id || undefined, gameInfoRevision);
+  const detectedBitness = analysis.architecture === "32-bits" ? "32" : analysis.architecture === "64-bits" ? "64" : null;
+  useEffect(() => {
+    if (detectedBitness) setBitness(detectedBitness);
+  }, [selectedGame?.path, detectedBitness, gameInfoRevision]);
   const [installStatus, setInstallStatus] = useState<string>("Verificando...");
   const [installedDll, setInstalledDll] = useState<string | null>(null);
 
@@ -398,6 +400,9 @@ function App() {
     } else {
       setIsCollapsingGame(false);
       setPlayGameEntrance(true);
+      setInstallStatus("Verificando...");
+      setInstalledDll(null);
+      ++installationRequest.current;
       setGameDir(game.path);
       setSelectedGame(game);
     }
@@ -561,7 +566,7 @@ function App() {
             </div>
           } 
         />
-        <div className="container" style={{ padding: '1rem', paddingTop: '0.5rem', height: 'calc(100vh - 50px)', overflow: 'auto' }}>
+        <motion.div layoutScroll className="container" style={{ padding: '1rem', paddingTop: '0.5rem', height: 'calc(100vh - 50px)', overflow: 'auto', overflowAnchor: 'none' }}>
 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 0, minHeight: 0 }}>
         
@@ -569,10 +574,13 @@ function App() {
         <AnimatePresence onExitComplete={() => setIsCollapsingGame(false)}>
         {selectedGame && (
           <motion.section key="game-details" className="selected-game-shell"
-            initial={false} animate={{ height: "auto", overflow: "visible" }} exit={{ height: 0, overflow: "hidden" }}
+            initial={performanceMode || !playGameEntrance ? false : { height: 0 }} animate={{ height: detailsSize.height ?? "auto" }} exit={{ height: 0, overflow: "hidden" }}
+            style={{ overflow: detailsSize.resizing && !performanceMode ? "hidden" : "visible" }}
+            onAnimationStart={detailsSize.startResize}
+            onAnimationComplete={detailsSize.finishResize}
             transition={{ duration: performanceMode ? 0 : 0.42, ease: [0.4, 0, 0.2, 1] }}>
-          <motion.div style={{ paddingBottom: 32 }} exit={{ y: performanceMode ? 0 : 180, opacity: 0 }} transition={{ duration: performanceMode ? 0 : 0.42, ease: [0.4, 0, 0.2, 1] }}>
-          <div className="selected-game-menu" style={{ animation: performanceMode || !playGameEntrance ? "none" : "slide-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards" }}>
+          <motion.div ref={detailsSize.contentRef} style={{ paddingBottom: 32 }} initial={performanceMode || !playGameEntrance ? false : { y: 180, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: performanceMode ? 0 : 180, opacity: 0 }} transition={{ duration: performanceMode ? 0 : 0.42, ease: [0.4, 0, 0.2, 1] }}>
+          <div className="selected-game-menu">
             
             {/* Left: Cover & Info */}
             <div className="game-summary">
@@ -665,10 +673,10 @@ function App() {
                   )}
                   
                   <div style={{ width: "100%" }}>
-                    <InstallAction onInstall={handleInstall} onUninstall={handleUninstallClick} loading={loading} installStatus={installStatus} />
+                    <InstallAction onInstall={handleInstall} onUninstall={handleUninstallClick} loading={loading} disabled={gpuArch === "rdna3" && bitness === "32"} installStatus={installStatus} />
                   </div>
                   
-                  {installStatus !== "Não Instalado" && installStatus !== "Nenhum" && installStatus !== "Verificando..." && (
+                  {isInstalledMod(installStatus) && (
                     <button 
                       className="btn btn-secondary game-uninstall-button" 
                       onClick={() => setShowConfirmGameUninstall(selectedGame.path)}
@@ -773,26 +781,26 @@ function App() {
                     {localizeAnalysisValue(analysis.graphics_api)}
                   </span>
                   <span className="game-info-label"><MenuIcon name="puzzle" />{t("gameInfo", "modInstalled")}</span>
-                  <span className="info-value-pill info-mod-status" style={{ color: installStatus === "Nenhum" || installStatus === "Não Instalado" ? "#ef4444" : "#10b981", background: installStatus === "Nenhum" || installStatus === "Não Instalado" ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: "4px", justifySelf: "start", fontWeight: "bold" }}>
-                    {installStatus === "Verificando..." ? t("gameInfo", "verifying") : (installStatus === "Nenhum" || installStatus === "Não Instalado" ? t("gameInfo", "no") : `${t("gameInfo", "yes")} (${installStatus.replace(/^Instalado\s*\((.*)\)$/, "$1")})`)}
+                  <span className="info-value-pill info-mod-status" style={{ color: !isInstalledMod(installStatus) ? "#ef4444" : "#10b981", background: !isInstalledMod(installStatus) ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: "4px", justifySelf: "start", fontWeight: "bold" }}>
+                    {installStatus === "Verificando..." ? t("gameInfo", "verifying") : (!isInstalledMod(installStatus) ? t("gameInfo", "no") : `${t("gameInfo", "yes")} (${installStatus.replace(/^Instalado\s*\((.*)\)$/, "$1")})`)}
                   </span>
                   
-                  {installStatus !== "Não Instalado" && installStatus !== "Nenhum" && installStatus !== "Verificando..." && (
+                  {isInstalledMod(installStatus) && (
                     <>
-                      <span className="game-info-label"><MenuIcon name="document" />{t("gameInfo", "injectedDll")}</span>
-                      <span className="info-value-pill info-architecture" style={{ color: "#60a5fa", fontFamily: "monospace", padding: "2px 6px", background: "rgba(96, 165, 250, 0.1)", borderRadius: "4px", justifySelf: "start" }}>
+                      <motion.span initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="game-info-label"><MenuIcon name="document" />{t("gameInfo", "injectedDll")}</motion.span>
+                      <motion.span initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="info-value-pill info-architecture" style={{ color: "#60a5fa", fontFamily: "monospace", padding: "2px 6px", background: "rgba(96, 165, 250, 0.1)", borderRadius: "4px", justifySelf: "start" }}>
                         {installedDll || t("gameInfo", "unknown")}
-                      </span>
+                      </motion.span>
                       
-                      <span className="game-info-label"><MenuIcon name="logs" />{t("gameInfo", "gameLogs")}</span>
-                      <a 
+                      <motion.span initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="game-info-label"><MenuIcon name="logs" />{t("gameInfo", "gameLogs")}</motion.span>
+                      <motion.a initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }}
                         onClick={() => {
                           invoke("collect_and_open_logs", { gameName: selectedGame.name, gameDir: selectedGame.path }).catch((e: any) => console.error("Error opening logs:", e));
                         }}
                         style={{ color: "#fbbf24", textDecoration: "underline", cursor: "pointer", justifySelf: "start" }}
                       >
                         {t("gameInfo", "openLogs")}
-                      </a>
+                      </motion.a>
                     </>
                   )}
                 </div>
@@ -810,7 +818,7 @@ function App() {
                     <MenuIcon name="chip" />
                     <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{t("bitness", "title")}</span>
                   </div>
-                  <BitnessSelector bitness={bitness} setBitness={setBitness} gpuArch={gpuArch} />
+                  <BitnessSelector bitness={bitness} setBitness={setBitness} gpuArch={gpuArch} recommended={detectedBitness} />
                 </div>
 
                 {/* RouteSelector */}
@@ -823,7 +831,7 @@ function App() {
                 </div>
 
                 {/* ShortcutKeySelector */}
-                <div className="mod-control-group mod-shortcut-group" style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "0.5rem", opacity: (installStatus === "Não Instalado" || installStatus === "Nenhum" || installStatus === "Verificando...") ? 0.4 : 1, pointerEvents: (installStatus === "Não Instalado" || installStatus === "Nenhum" || installStatus === "Verificando...") ? "none" : "auto" }}>
+                <div className="mod-control-group mod-shortcut-group" style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "0.5rem", opacity: !isInstalledMod(installStatus) ? 0.4 : 1, pointerEvents: !isInstalledMod(installStatus) ? "none" : "auto" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <MenuIcon name="keyboard" />
                     <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{t("gameInfo", "menuKey")}</span>
@@ -836,7 +844,7 @@ function App() {
                         const newConfig = { ...appConfig, shortcut_key: val };
                         setAppConfig(newConfig);
                         invoke("save_app_config", { config: newConfig }).catch(err => console.error("Failed to save config:", err));
-                        if (selectedGame && (installStatus !== "Não Instalado" && installStatus !== "Nenhum")) {
+                        if (selectedGame && (isInstalledMod(installStatus))) {
                           invoke("update_shortcut_key_in_game", { gameDir: selectedGame.path, shortcutKey: val })
                             .catch(err => console.error("Failed to update shortcut in game:", err));
                         }
@@ -862,7 +870,7 @@ function App() {
       <div style={{ textAlign: "right", marginTop: "1rem", fontSize: "0.75rem", opacity: 0.6, fontFamily: "monospace", padding: "0 1rem" }}>
         {APP_BUILD_LABEL}
       </div>
-      </div>
+      </motion.div>
     </div>
 
     {showConfirmGameUninstall && (

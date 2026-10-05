@@ -14,7 +14,9 @@ const emptyAnalysis: GameAnalysisResult = {
 };
 
 export function useGameAnalysis(path?: string, name?: string, appId?: string, revision = 0) {
-  const [analysis, setAnalysis] = useState<GameAnalysisResult>(emptyAnalysis);
+  const identity = JSON.stringify([path, name, appId, revision]);
+  const [state, setState] = useState({ identity, analysis: emptyAnalysis });
+  const setAnalysis = (analysis: GameAnalysisResult) => setState({ identity, analysis });
 
   useEffect(() => {
     setAnalysis(emptyAnalysis);
@@ -33,5 +35,5 @@ export function useGameAnalysis(path?: string, name?: string, appId?: string, re
     };
   }, [path, name, appId, revision]);
 
-  return analysis;
+  return state.identity === identity ? state.analysis : emptyAnalysis;
 }
