@@ -63,30 +63,6 @@ A compatibilidade do mod depende do backend, da GPU, dos drivers, da versão do 
 
 A instalação modifica arquivos na pasta do jogo. Preserve seus arquivos originais e não utilize o mod em jogos online com anti-cheat, conforme as orientações do [backend original](https://github.com/mochizuki0323/DLSSNR-AMD#before-you-use-it).
 
-## Capas dos jogos
-
-O launcher aproveita as capas configuradas no Heroic, incluindo imagens locais. Para capas ausentes, consulta a Steam e, como alternativas, os catálogos públicos da Epic e da GOG. As buscas online funcionam sem instalar o Heroic. O reconhecimento considera diferenças de pontuação, nomes de edições e aliases conhecidos, como **God of War (2018)**.
-
-A integração com **SteamGridDB** é opcional: adicione sua chave pessoal em **Preferências → Capas · SteamGridDB** e clique em **Salvar**. Você pode obter a chave nas [preferências de API do SteamGridDB](https://www.steamgriddb.com/profile/preferences/api). O menu de botão direito das capas oferece um atalho para a configuração.
-
-- **Alterar capa local:** escolha uma imagem própria. A cópia é salva localmente e permanece após reescaneamentos.
-- **Redefinir capa:** restaura a capa automática disponível ou tenta uma nova consulta quando não há uma capa salva.
-- **Escanear:** renova a biblioteca e busca as capas que faltam.
-
-A chave pessoal é salva nas configurações locais do usuário, com acesso restrito ao proprietário no Linux. Não existe chave pessoal embutida no código ou nos pacotes distribuídos. Capas e marcas exibidas pertencem aos respectivos titulares; a licença do launcher não atribui direitos sobre essas imagens.
-
-## Atualizações
-
-### Launcher
-
-Na engrenagem, escolha **Atualizar programa**. A consulta utiliza a última Release estável pública de [pelicanux/dlssnr-x-amd-launcher](https://github.com/pelicanux/dlssnr-x-amd-launcher/releases), sem token do GitHub embutido.
-
-O aplicativo oferece download quando a versão publicada é superior à instalada e verifica o arquivo pelo SHA-256 informado pelo GitHub. No **AppImage**, **Reiniciar e atualizar** substitui o arquivo atual e mantém uma cópia `.AppImage.previous`; a pasta precisa permitir escrita. Para **DEB/RPM**, o pacote baixado é mostrado no gerenciador de arquivos para instalação pelo sistema.
-
-### Backend
-
-Use **Preferências → Atualizar Backend** para gerenciar os arquivos do projeto selecionado. Essa atualização é independente da atualização do launcher e utiliza as Releases dos autores dos backends.
-
 ## Desenvolvimento e compilação
 
 O projeto utiliza **React, TypeScript e Vite** na interface e **Rust com Tauri 2** na camada nativa.
@@ -127,20 +103,6 @@ Os pacotes ficam em `src-tauri/target/release/bundle/`, nas subpastas `appimage`
 | `licenses/` | Cópias dos avisos originais de licença e dos componentes de terceiros do backend. |
 | `scripts/publish-release.sh` | Publicação dos pacotes no repositório de distribuição. |
 | `install.sh` | Instalação local do próprio launcher e de seu atalho; não é o instalador do mod nos jogos. |
-
-### Publicação de versões
-
-Mantenha a mesma versão em `package.json`, `src-tauri/Cargo.toml` e `src-tauri/tauri.conf.json`. Para disponibilizar uma atualização, incremente o número, por exemplo de `0.7.0` para `0.7.1`. O sufixo de dia, hora e minuto exibido na interface identifica a compilação; ele não substitui o incremento da versão para o atualizador.
-
-Com os três formatos compilados e o GitHub CLI autenticado com acesso ao repositório de distribuição:
-
-```bash
-scripts/publish-release.sh /caminho/para/notas-da-versao.md
-```
-
-O script confere as versões, seleciona os pacotes atuais, cria uma Release em rascunho e só a publica após concluir todos os uploads. As tags seguem o formato `v0.7.1`. Não reutilize uma versão já publicada.
-
-Arquivos de configuração pessoal, chaves, caches e artefatos de compilação não devem ser adicionados ao código-fonte. A configuração de SteamGridDB é feita dentro do aplicativo, sem exigir uma chave para compilar o launcher.
 
 ## Créditos e licenças
 
