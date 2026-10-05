@@ -1,3 +1,4 @@
+import { CoverContextMenuPanel, SteamGridCoverHint } from "./components/CoverContextMenu";
 import { changeLocalCover, resetGameCover, reportCoverError } from "./services/customCovers";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -21,6 +22,7 @@ import { BitnessSelector } from "./components/BitnessSelector";
 import { InstallAction } from "./components/InstallAction";
 import { ResultModal } from "./components/ResultModal";
 import { UninstallModal } from "./components/UninstallModal";
+import { AppUpdateModal } from "./components/AppUpdateModal";
 import { BackendUpdaterModal } from "./components/BackendUpdaterModal";
 import { LoadingModal } from "./components/LoadingModal";
 import { CreditsModal } from "./components/CreditsModal";
@@ -72,10 +74,12 @@ function App() {
   const [modalMessage, setModalMessage] = useState("");
   const [modalType, setModalType] = useState<"success" | "error">("success");
 
+  const [showAppUpdate, setShowAppUpdate] = useState(false);
   const [showUpdaterModal, setShowUpdaterModal] = useState(false);
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<"general" | "covers">("general");
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
 
@@ -427,7 +431,7 @@ function App() {
     }
   };
 
-  const hasOpenDialog = showSetupWizard || showSettingsModal || showCreditsModal || showInstructionsModal || showUpdaterModal || showModal || showUninstallPrompt || !!showConfirmGameUninstall || loading;
+  const hasOpenDialog = showAppUpdate || showSetupWizard || showSettingsModal || showCreditsModal || showInstructionsModal || showUpdaterModal || showModal || showUninstallPrompt || !!showConfirmGameUninstall || loading;
 
   useEffect(() => {
     if (hasOpenDialog) {
@@ -435,6 +439,16 @@ function App() {
       setShowLangDropdown(false);
       setCoverContextMenu(null);
     }
+  }, [hasOpenDialog]);
+
+  useEffect(() => {
+    const openCoverSettings = () => {
+      if (hasOpenDialog) return;
+      setSettingsSection("covers");
+      setShowSettingsModal(true);
+    };
+    window.addEventListener("openCoverPreferences", openCoverSettings);
+    return () => window.removeEventListener("openCoverPreferences", openCoverSettings);
   }, [hasOpenDialog]);
 
   return (
@@ -467,7 +481,7 @@ function App() {
                     <button 
                       className="btn btn-secondary" 
                       style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.5rem 0.8rem", width: "100%", borderRadius: "6px", background: "transparent", border: "none" }}
-                      onClick={() => { setShowSettingsModal(true); setShowSettings(false); }}
+                      onClick={() => { setSettingsSection("general"); setShowSettingsModal(true); setShowSettings(false); }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -475,6 +489,11 @@ function App() {
                       </div>
                     </button>
 
+
+                    <button className="btn btn-secondary launcher-update-menu-button" onClick={() => { setShowSettings(false); setShowAppUpdate(true); }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
+                      {t("launcherUpdate", "title")}
+                    </button>
 
                     <div className="effects-preference">
                       <span className="effects-preference-label">
@@ -858,6 +877,8 @@ function App() {
       />
     )}
 
+    {showAppUpdate && <AppUpdateModal onClose={() => setShowAppUpdate(false)} />}
+
     {showUpdaterModal && (
       <BackendUpdaterModal 
         gpuArch={gpuArch} 
@@ -885,7 +906,7 @@ function App() {
     )}
 
     {showSettingsModal && (
-      <SettingsModal 
+      <SettingsModal initialSection={settingsSection}
         onClose={() => setShowSettingsModal(false)}
         onConfigUpdated={(config) => {
           setAppConfig(config);
@@ -911,13 +932,8 @@ function App() {
     )}
     
     {coverContextMenu && selectedGame && (
-      <div ref={coverContextMenuRef} style={{
-        position: "fixed", top: coverContextMenu.y, left: coverContextMenu.x, zIndex: 1000,
-        background: "#1e1e2f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.5)", overflow: "hidden", minWidth: "180px",
-        display: "flex", flexDirection: "column"
-      }}>
-        {selectedGame.launcher === "Manual" && (
+      <CoverContextMenuPanel ref={coverContextMenuRef} x={coverContextMenu.x} y={coverContextMenu.y}>
+        <SteamGridCoverHint />        {selectedGame.launcher === "Manual" && (
           <button
             onClick={() => {
               const customFolders = JSON.parse(localStorage.getItem("custom_folders") || "[]");
@@ -977,7 +993,7 @@ function App() {
         >
           {t("gameGrid", "rescan")}
         </button>
-      </div>
+      </CoverContextMenuPanel>
     )}
     </EffectsContext.Provider>
   );

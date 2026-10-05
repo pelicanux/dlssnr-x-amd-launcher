@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { AppConfig } from "./SetupWizard";
 import { useI18n } from "../i18n/I18nContext";
@@ -8,16 +9,21 @@ import { BackendUpdaterModal } from "./BackendUpdaterModal";
 
 interface Props {
   onClose: () => void;
+  initialSection?: "general" | "covers";
   onConfigUpdated: (config: AppConfig | null) => void;
   onOpenWizard: () => void;
 }
 
-export const SettingsModal: React.FC<Props> = ({ onClose, onConfigUpdated, onOpenWizard }) => {
+export const SettingsModal: React.FC<Props> = ({ onClose, onConfigUpdated, onOpenWizard, initialSection = "general" }) => {
   const [config, setConfig] = useState<AppConfig>({
     backend: "AMDNR",
     dll_version: "0.5.1",
     shortcut_key: "Insert"
   });
+  const coverKeyRef = useRef<HTMLInputElement>(null);
+  const [showCoverKey, setShowCoverKey] = useState(false);
+  const [configReady, setConfigReady] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [customFolders, setCustomFolders] = useState<string[]>(() => {
     const saved = localStorage.getItem("custom_folders");
@@ -45,19 +51,29 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onConfigUpdated, onOpe
     invoke<AppConfig | null>("load_app_config")
       .then((res) => {
         if (res) setConfig(res);
+        setConfigReady(true);
       })
-      .catch(console.error);
+      .catch(() => setSaveError(true));
   }, []);
+
+  useEffect(() => {
+    if (initialSection === "covers" && configReady) {
+      coverKeyRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+      coverKeyRef.current?.focus({ preventScroll: true });
+    }
+  }, [initialSection, configReady]);
 
   const handleSave = async () => {
     setLoading(true);
+    setSaveError(false);
     try {
       await invoke("save_app_config", { config });
+      window.dispatchEvent(new Event("steamGridSettingsChanged"));
       onConfigUpdated(config);
       onClose();
     } catch (err) {
       console.error("Failed to save config:", err);
-      alert(t("setupWizard", "saveError"));
+      setSaveError(true);
     } finally {
       setLoading(false);
     }
@@ -143,6 +159,30 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onConfigUpdated, onOpe
                 </div>
               </div>
             </div>
+        <section className="steamgrid-settings" aria-labelledby="steamgrid-settings-title">
+          <h3 id="steamgrid-settings-title">{t("steamgrid", "title")}</h3>
+          <p>{t("steamgrid", "description")}</p>
+          <label htmlFor="steamgrid-api-key">{t("steamgrid", "keyLabel")}</label>
+          <div className="steamgrid-key-controls">
+            <input id="steamgrid-api-key" ref={coverKeyRef} type={showCoverKey ? "text" : "password"}
+              autoComplete="off" spellCheck={false} maxLength={128} disabled={!configReady || loading}
+              value={config.steamgriddb_api_key ?? ""} placeholder={t("steamgrid", "placeholder")}
+              onChange={event => setConfig({ ...config, steamgriddb_api_key: event.target.value })} />
+            <button type="button" onClick={() => setShowCoverKey(!showCoverKey)} aria-pressed={showCoverKey}>
+              {t("steamgrid", showCoverKey ? "hide" : "show")}
+            </button>
+            <button type="button" disabled={!configReady || loading || !config.steamgriddb_api_key}
+              onClick={() => setConfig({ ...config, steamgriddb_api_key: "" })}>{t("steamgrid", "remove")}</button>
+          </div>
+          <div className="steamgrid-settings-footer">
+            <span>{t("steamgrid", "localOnly")}</span>
+            <button type="button" onClick={() => openUrl("https://www.steamgriddb.com/profile/preferences/api").catch(() => setSaveError(true))}>
+              {t("steamgrid", "getKey")} ↗
+            </button>
+          </div>
+          <small>{t("steamgrid", "rescanHint")}</small>
+        </section>
+        {saveError && <p role="alert" style={{ color: "#f87171" }}>{t("setupWizard", "saveError")}</p>}
         {customFolders.length > 0 && (
           <div style={{ marginBottom: "1.5rem", marginTop: "2rem" }}>
             <label style={{ display: "block", color: "#ffffff", fontWeight: "bold", fontSize: "1rem", marginBottom: "0.5rem" }}>
@@ -212,7 +252,6 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onConfigUpdated, onOpe
           </div>
           
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginLeft: "auto" }}>
-            <span style={{ fontSize: "0.85rem", color: "#94a3b8", fontWeight: "bold" }}>{t("settings", "actions")}</span>
             <div style={{ display: "flex", gap: "0.5rem", background: "rgba(20, 20, 25, 0.5)", border: "1px solid rgba(255,255,255,0.05)", padding: "0.5rem", borderRadius: "8px" }}>
               <button 
                 onClick={onClose}
@@ -223,7 +262,7 @@ export const SettingsModal: React.FC<Props> = ({ onClose, onConfigUpdated, onOpe
               </button>
               <button 
                 onClick={handleSave}
-                disabled={loading}
+                disabled={loading || !configReady}
                 className="btn" 
                 style={{ 
                   padding: "0.6rem 2rem", borderRadius: "6px", fontWeight: "bold", 

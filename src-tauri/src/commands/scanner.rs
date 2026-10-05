@@ -14,13 +14,6 @@ pub struct GameInfo {
 }
 
 #[derive(Deserialize, Debug)]
-struct HeroicGame {
-    pub app_name: String,
-    pub title: String,
-    pub install_path: String,
-}
-
-#[derive(Deserialize, Debug)]
 struct SteamGridSearchResponse {
     pub success: bool,
     pub data: Vec<SteamGridGame>,
@@ -147,129 +140,31 @@ fn scan_steam(home: &Path) -> Vec<GameInfo> {
 }
 
 fn scan_heroic(home: &Path) -> Vec<GameInfo> {
-    let mut games = Vec::new();
-    
-    let heroic_paths = vec![
-        home.join(".config/heroic"),
-        home.join(".var/app/com.heroicgameslauncher.hgl/config/heroic"),
-    ];
-
-    for base in heroic_paths {
-        let stores = vec!["gog_store", "legendaryConfig", "sideload_store"];
-        for store in stores {
-            let installed_path = base.join(store).join("installed.json");
-            if installed_path.exists() {
-                if let Ok(content) = fs::read_to_string(&installed_path) {
-                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&content) {
-                        if let Some(installed_array) = parsed["installed"].as_array() {
-                            for item in installed_array {
-                                let name = item["title"].as_str().unwrap_or("Unknown").to_string();
-                                let path = item["install_path"].as_str().unwrap_or("").to_string();
-                                if !path.is_empty() && Path::new(&path).exists() {
-                                    games.push(GameInfo {
-                                        name,
-                                        path,
-                                        app_id: None,
-                                        cover_url: None, // Will fetch via steamgriddb
-                                        launcher: "Heroic".to_string(),
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let sideloads_path = base.join("sideloads.json");
-        if sideloads_path.exists() {
-            if let Ok(content) = fs::read_to_string(&sideloads_path) {
-                if let Ok(parsed_array) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
-                    for item in parsed_array {
-                        let name = item["title"].as_str().or(item["appName"].as_str()).unwrap_or("Unknown").to_string();
-                        let path = item["installPath"].as_str().or(item["install_path"].as_str()).unwrap_or("").to_string();
-                        if !path.is_empty() && Path::new(&path).exists() {
-                            games.push(GameInfo {
-                                name,
-                                path,
-                                app_id: None,
-                                cover_url: None,
-                                launcher: "Heroic".to_string(),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        // Newer Heroic sideload apps format
-        let sideloads_lib_path = base.join("sideload_apps").join("library.json");
-        if sideloads_lib_path.exists() {
-            if let Ok(content) = fs::read_to_string(&sideloads_lib_path) {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(games_array) = parsed["games"].as_array() {
-                        for item in games_array {
-                            let name = item["title"].as_str().unwrap_or("Unknown").to_string();
-                            let path = item["folder_name"].as_str().unwrap_or("").to_string();
-                            let cover_url = item["art_cover"].as_str().map(|s| s.to_string());
-                            // Local file paths might not load directly in the browser due to security, but it's fine
-                            if !path.is_empty() && Path::new(&path).exists() {
-                                games.push(GameInfo {
-                                    name,
-                                    path,
-                                    app_id: None,
-                                    cover_url,
-                                    launcher: "Heroic".to_string(),
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    games
-}
-
-#[derive(Deserialize, Debug)]
-struct SteamStoreSearchItem {
-    id: u32,
-}
-
-#[derive(Deserialize, Debug)]
-struct SteamStoreSearchResponse {
-    items: Vec<SteamStoreSearchItem>,
-}
-
-async fn fetch_steam_store_cover(name: &str) -> Option<String> {
-    let client = reqwest::Client::new();
-    let search_url = format!("https://store.steampowered.com/api/storesearch/?term={}&l=english&cc=US", urlencoding::encode(name));
-    
-    if let Ok(resp) = client.get(&search_url).send().await {
-        if let Ok(json) = resp.json::<SteamStoreSearchResponse>().await {
-            if let Some(first_game) = json.items.first() {
-                let url = format!("https://steamcdn-a.akamaihd.net/steam/apps/{}/library_600x900.jpg", first_game.id);
-                // Verify the image actually exists (returns 200 OK)
-                if let Ok(img_resp) = client.head(&url).send().await {
-                    if img_resp.status().is_success() {
-                        return Some(url);
-                    }
-                }
-            }
-        }
-    }
-    None
+    [home.join(".config/heroic"), home.join(".var/app/com.heroicgameslauncher.hgl/config/heroic")]
+        .iter().flat_map(|base| super::heroic_library::scan(base)).map(|game| GameInfo {
+            name: game.name, path: game.path, app_id: None, cover_url: game.cover,
+            launcher: "Heroic".to_string(),
+        }).collect()
 }
 
 async fn fetch_best_cover(name: &str, api_key: &str) -> Option<String> {
+    let name = super::store_artwork::catalog_title(name);
     // Try Steam Store first since it might have games SteamGridDB doesn't have yet, and it's official
-    if let Some(url) = fetch_steam_store_cover(name).await {
+    if let Some(url) = super::store_artwork::fetch_steam_cover(name).await {
         return Some(url);
     }
     
-    // Fallback to SteamGridDB
-    fetch_steamgriddb_cover(name, api_key).await
+    // Search official online catalogs directly; Heroic is not needed for artwork.
+    if let Some(url) = super::store_artwork::fetch_cover(name).await {
+        return Some(url);
+    }
+
+    // SteamGridDB is optional; the official stores do not require this key.
+    let personal_key = crate::core::config_manager::load_config()
+        .and_then(|config| config.steamgriddb_api_key).unwrap_or_default();
+    let key = if personal_key.trim().is_empty() { api_key } else { personal_key.trim() };
+    if key.is_empty() { return None; }
+    fetch_steamgriddb_cover(name, key).await
 }
 
 #[tauri::command]
@@ -458,9 +353,30 @@ pub async fn scan_installed_games(app: AppHandle, api_key: String, custom_folder
         }
     }
     
+    // Resolve current Steam artwork filenames in one catalog request.
+    let steam_ids: Vec<u32> = unique_games.iter().filter_map(|game| game.app_id.as_ref()?.parse().ok()).collect();
+    let steam_assets = super::store_artwork::fetch_steam_assets(&steam_ids).await;
+    for game in &mut unique_games {
+        if let Some(url) = game.app_id.as_ref().and_then(|id| id.parse::<u32>().ok()).and_then(|id| steam_assets.get(&id)) {
+            game.cover_url = Some(url.clone());
+        }
+    }
+
+    // Copy Heroic file artwork into our scoped asset directory before displaying it.
+    for game in &mut unique_games {
+        if let Some(url) = game.cover_url.as_ref().filter(|url| url.starts_with("file://")) {
+            let source = reqwest::Url::parse(url).ok().and_then(|url| url.to_file_path().ok());
+            game.cover_url = match source {
+                Some(source) => super::covers::cache_heroic_cover(&app, source).await.ok()
+                    .and_then(|path| reqwest::Url::from_file_path(path).ok()).map(|url| url.to_string()),
+                None => None,
+            };
+        }
+    }
+
     // 3. Fetch missing covers using API
     for game in &mut unique_games {
-        if game.cover_url.is_none() && !api_key.is_empty() {
+        if game.cover_url.is_none() {
             if let Some(url) = fetch_best_cover(&game.name, &api_key).await {
                 game.cover_url = Some(url);
             } else {

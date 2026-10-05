@@ -1,5 +1,6 @@
 import { useI18n } from "../i18n/I18nContext";
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { creditLicenses } from '../services/licenses';
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { APP_BUILD_LABEL } from "../services/buildInfo";
 
@@ -9,6 +10,31 @@ interface Props {
 
 export const CreditsModal: React.FC<Props> = ({ onClose }) => {
   const { t } = useI18n();
+  const [licenseId, setLicenseId] = useState<string | null>(null);
+  const selectedLicense = creditLicenses.find(item => item.id === licenseId);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnButtonRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.scrollTop = 0;
+    if (licenseId) dialog.querySelector<HTMLButtonElement>('button')?.focus();
+    else (returnButtonRef.current ?? dialog.querySelector<HTMLButtonElement>('button'))?.focus();
+  }, [licenseId]);
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      if (licenseId) setLicenseId(null);
+      else onClose();
+    }
+    if (event.key === 'Tab') {
+      const buttons = dialogRef.current?.querySelectorAll<HTMLElement>('button, [tabindex="0"]');
+      if (!buttons?.length) return;
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+  };
   const handleLink = async (url: string) => {
     try {
       await openUrl(url);
@@ -20,9 +46,9 @@ export const CreditsModal: React.FC<Props> = ({ onClose }) => {
 
   return (
     <div style={{ position: "fixed", top: "50px", left: 0, right: 0, height: "calc(100dvh - 50px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }} onClick={onClose} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }} onClick={() => licenseId ? setLicenseId(null) : onClose()} />
       
-      <div className="modal-content dialog-glass credits-dialog" style={{ 
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="credits-heading" onKeyDown={handleKeyDown} className={`modal-content dialog-glass credits-dialog ${selectedLicense ? "license-dialog" : ""}`} style={{
         background: "rgba(10, 5, 10, 0.95)", 
         padding: "1.5rem", 
         borderRadius: "16px", 
@@ -32,9 +58,20 @@ export const CreditsModal: React.FC<Props> = ({ onClose }) => {
         border: "1px solid rgba(237, 28, 36, 0.4)", 
         boxShadow: "0 0 60px rgba(237, 28, 36, 0.25)" 
       }}>
+        {selectedLicense ? <>
+          <button className="credits-license-back" onClick={() => setLicenseId(null)}>← {t("credits", "backToCredits")}</button>
+          <h2 id="credits-heading" className="credits-license-heading">{selectedLicense.id === 'thirdParty' ? t("credits", "thirdParty") : selectedLicense.name}</h2>
+          <div className="credits-license-label">{selectedLicense.label}</div>
+          <p className="credits-license-note">{t("credits", "originalNotice")}</p>
+          <pre className="credits-license-text" tabIndex={0}>{selectedLicense.text}</pre>
+          <div className="credits-license-actions">
+            <button onClick={() => handleLink(selectedLicense.url)}>{t("credits", "viewSource")} ↗</button>
+            <button onClick={() => setLicenseId(null)}>{t("credits", "backToCredits")}</button>
+          </div>
+        </> : <>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ED1C24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <h2 style={{ margin: 0, color: "#fff", fontSize: "1.3rem" }}>{t("credits", "title")}</h2>
+          <h2 id="credits-heading" style={{ margin: 0, color: "#fff", fontSize: "1.3rem" }}>{t("credits", "title")}</h2>
         </div>
         
         {/* Banner Logo */}
@@ -168,6 +205,23 @@ export const CreditsModal: React.FC<Props> = ({ onClose }) => {
           </div>
         </div>
 
+        <section className="credits-licenses" aria-labelledby="credits-licenses-heading">
+          <h4 id="credits-licenses-heading">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+            {t("credits", "licenses")}
+          </h4>
+          <div className="credits-license-grid">
+            {creditLicenses.map(item => <button key={item.id} onClick={event => {
+              returnButtonRef.current = event.currentTarget;
+              setLicenseId(item.id);
+            }}>
+              <span>{item.id === 'thirdParty' ? t("credits", "thirdParty") : item.name}</span>
+              <small>{item.label}</small>
+              <span className="credits-license-read">{t("credits", "readLicense")} →</span>
+            </button>)}
+          </div>
+        </section>
+
         {/* Footer */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1.5rem" }}>
           <span style={{ fontSize: "0.8rem", color: "#64748b", fontFamily: "monospace" }}>{APP_BUILD_LABEL}</span>
@@ -184,6 +238,7 @@ export const CreditsModal: React.FC<Props> = ({ onClose }) => {
             {t("resultModal", "close")}
           </button>
         </div>
+        </>}
       </div>
     </div>
   );

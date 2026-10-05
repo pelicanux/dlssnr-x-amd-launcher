@@ -1,2 +1,3 @@
-// Optional build-time configuration; never commit personal API keys.
-export const STEAMGRIDDB_API_KEY = import.meta.env.VITE_STEAMGRIDDB_API_KEY ?? "";
+// Compatibility argument for native cover commands. Personal keys are loaded
+// from the local application settings in Rust, never embedded at build time.
+export const STEAMGRIDDB_API_KEY = "";

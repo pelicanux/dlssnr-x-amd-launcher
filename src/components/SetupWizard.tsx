@@ -9,6 +9,7 @@ import { ModelSource } from "../types/installer";
 import { useI18n } from "../i18n/I18nContext";
 
 export interface AppConfig {
+  steamgriddb_api_key?: string;
   backend: string;
   dll_version: string;
   shortcut_key: string;

@@ -1,3 +1,4 @@
+import { CoverContextMenuPanel, SteamGridCoverHint } from "./CoverContextMenu";
 import { STEAMGRIDDB_API_KEY } from "../services/coverConfig";
 import { changeLocalCover, resetGameCover, reportCoverError, hasCustomCover } from "../services/customCovers";
 import React, { useState, useEffect, useRef } from "react";
@@ -473,13 +474,8 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
         })()}
       </div>
       {contextMenu && (
-        <div style={{
-          position: "fixed", top: contextMenu.y, left: contextMenu.x, zIndex: 1000,
-          background: "#1e1e2f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.5)", overflow: "hidden", minWidth: "180px",
-          display: "flex", flexDirection: "column"
-        }}>
-          <button
+      <CoverContextMenuPanel x={contextMenu.x} y={contextMenu.y}>
+        <SteamGridCoverHint />          <button
             onClick={() => {
               setGames(prev => prev.filter(g => g.path !== contextMenu.game.path));
               if (contextMenu.game.launcher === "Manual") {
@@ -537,7 +533,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
           >
             {t("gameGrid", "rescan")}
           </button>
-        </div>
+        </CoverContextMenuPanel>
       )}
     </div>
   );

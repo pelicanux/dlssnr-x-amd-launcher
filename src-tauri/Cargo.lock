@@ -937,13 +937,15 @@ dependencies = [
 
 [[package]]
 name = "dlssnr-x-amd"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "dirs 5.0.1",
  "flate2",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
+ "sha2",
  "tar",
  "tauri",
  "tauri-build",

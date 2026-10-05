@@ -2,6 +2,31 @@ export type Language = "pt" | "en";
 
 export const translations = {
   pt: {
+    launcherUpdate: {
+      "title": "Atualizar programa",
+      "current": "Versão instalada:",
+      "checking": "Verificando atualizações…",
+      "noRelease": "Ainda não há uma versão publicada neste repositório.",
+      "available": "Nova versão disponível:",
+      "upToDate": "Você está usando a versão mais recente.",
+      "package": "Pacote para baixar",
+      "noPackage": "Esta versão não tem um pacote compatível com seu computador.",
+      "manualInstall": "Após baixar, abra o pacote DEB ou RPM no instalador do sistema. Para AppImage, execute o arquivo baixado.",
+      "downloading": "Baixando e verificando…",
+      "ready": "Download concluído e integridade verificada.",
+      "releases": "Ver Releases",
+      "close": "Fechar",
+      "downloadButton": "Baixar atualização",
+      "restart": "Reiniciar e atualizar",
+      "showFile": "Mostrar arquivo",
+      "network": "Não foi possível acessar o GitHub. Verifique a conexão e tente novamente.",
+      "rateLimit": "O GitHub limitou as consultas. Tente novamente mais tarde.",
+      "invalidRelease": "A versão publicada precisa de uma tag no formato v0.8.0.",
+      "checksumMissing": "Este pacote não tem uma soma SHA-256 fornecida pelo GitHub. Publique o arquivo novamente para habilitar o download verificado.",
+      "checksum": "O arquivo baixado não passou na verificação de integridade. Tente baixar novamente.",
+      "apply": "Não foi possível substituir ou iniciar o AppImage. Verifique as permissões da pasta ou use o arquivo baixado.",
+      "download": "Não foi possível salvar ou abrir o arquivo. Verifique o espaço e as permissões da pasta."
+},
     textContext: { title: "Texto", copy: "Copiar", paste: "Colar", error: "Não foi possível acessar a área de transferência." },
     gameCache: {
       title: "Limpar informações dos jogos",
@@ -116,7 +141,13 @@ export const translations = {
       discord: "Discord",
       backend: "Backend",
       frontend: "Frontend",
-      forkRdna3: "Fork RDNA3"
+      forkRdna3: "Fork RDNA3",
+      licenses: "Licenças e avisos",
+      thirdParty: "Componentes de terceiros",
+      readLicense: "Ler licença / avisos",
+      backToCredits: "Voltar aos créditos",
+      viewSource: "Abrir página original",
+      originalNotice: "Texto original preservado em inglês. Disponível para consulta mesmo sem internet."
     },
     gameDir: {
       title: "Diretório do Jogo",
@@ -168,6 +199,19 @@ export const translations = {
     },
     loadingModal: {
       wait: "Aguarde..."
+    },
+    steamgrid: {
+      title: "Capas · SteamGridDB",
+      description: "Adicione sua chave pessoal para consultar capas no SteamGridDB.",
+      keyLabel: "Chave de API do SteamGridDB",
+      placeholder: "Cole sua chave pessoal aqui",
+      show: "Mostrar", hide: "Ocultar", remove: "Remover",
+      localOnly: "Salva somente nas configurações deste computador.",
+      getKey: "Obter minha chave",
+      rescanHint: "Clique em Salvar para aplicar. Depois, use Escanear para buscar as capas que faltam. Remover a chave desativa essa consulta opcional.",
+      missingHint: "Para buscar capas no SteamGridDB, adicione sua chave pessoal em Preferências. Essa integração é opcional.",
+      configuredHint: "Sua chave do SteamGridDB está configurada. Gerencie ou remova em Preferências.",
+      configure: "Preferências → SteamGridDB"
     },
     settings: {
       effects: "Efeitos da interface",
@@ -269,6 +313,31 @@ export const translations = {
     }
   },
   en: {
+    launcherUpdate: {
+      "title": "Update application",
+      "current": "Installed version:",
+      "checking": "Checking for updates…",
+      "noRelease": "No release has been published in this repository yet.",
+      "available": "New version available:",
+      "upToDate": "You are using the latest version.",
+      "package": "Package to download",
+      "noPackage": "This release has no package compatible with your computer.",
+      "manualInstall": "After downloading, open the DEB or RPM package in your system installer. For AppImage, launch the downloaded file.",
+      "downloading": "Downloading and verifying…",
+      "ready": "Download complete and integrity verified.",
+      "releases": "View Releases",
+      "close": "Close",
+      "downloadButton": "Download update",
+      "restart": "Restart and update",
+      "showFile": "Show file",
+      "network": "Could not reach GitHub. Check your connection and try again.",
+      "rateLimit": "GitHub has limited requests. Try again later.",
+      "invalidRelease": "The published version needs a tag such as v0.8.0.",
+      "checksumMissing": "This package has no SHA-256 digest provided by GitHub. Upload it again to enable verified downloading.",
+      "checksum": "The downloaded file failed the integrity check. Try downloading again.",
+      "apply": "Could not replace or launch the AppImage. Check folder permissions or use the downloaded file.",
+      "download": "Could not save or open the file. Check free space and folder permissions."
+},
     textContext: { title: "Text", copy: "Copy", paste: "Paste", error: "Could not access the clipboard." },
     gameCache: {
       title: "Clear game information",
@@ -383,7 +452,13 @@ export const translations = {
       discord: "Discord",
       backend: "Backend",
       frontend: "Frontend",
-      forkRdna3: "RDNA3 Fork"
+      forkRdna3: "RDNA3 Fork",
+      licenses: "Licenses and notices",
+      thirdParty: "Third-party components",
+      readLicense: "Read license / notices",
+      backToCredits: "Back to credits",
+      viewSource: "Open original page",
+      originalNotice: "Original English text preserved. Available to read even without an internet connection."
     },
     gameDir: {
       title: "Game Directory",
@@ -435,6 +510,19 @@ export const translations = {
     },
     loadingModal: {
       wait: "Please wait..."
+    },
+    steamgrid: {
+      title: "Cover art · SteamGridDB",
+      description: "Add your personal key to search SteamGridDB for cover art.",
+      keyLabel: "SteamGridDB API key",
+      placeholder: "Paste your personal key here",
+      show: "Show", hide: "Hide", remove: "Remove",
+      localOnly: "Saved only in this computer's application settings.",
+      getKey: "Get my key",
+      rescanHint: "Click Save to apply. Then use Scan to find missing covers. Removing the key disables this optional lookup.",
+      missingHint: "To search SteamGridDB for cover art, add your personal API key in Preferences. This integration is optional.",
+      configuredHint: "Your SteamGridDB key is configured. Manage or remove it in Preferences.",
+      configure: "Preferences → SteamGridDB"
     },
     settings: {
       effects: "Interface effects",

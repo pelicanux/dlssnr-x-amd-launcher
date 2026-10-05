@@ -62,8 +62,8 @@ Requisitos:
 - Bibliotecas de desenvolvimento do Linux exigidas pelo Tauri 2. Consulte os [pré-requisitos oficiais por distribuição](https://v2.tauri.app/start/prerequisites/#linux).
 
 ```bash
-git clone https://github.com/pelicanux/dlssnr-x-amd.git
-cd dlssnr-x-amd
+git clone https://github.com/pelicanux/dlssnr-x-amd-launcher.git
+cd dlssnr-x-amd-launcher
 bun install
 bun run tauri dev
 ```

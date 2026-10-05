@@ -1,3 +1,4 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { readCustomCovers } from "./customCovers";
 import type { GameInfo } from "../components/GameGrid";
 
@@ -8,8 +9,12 @@ export function applyCustomCovers(games: GameInfo[]): GameInfo[] {
   return games.map(game => {
     const custom = covers[game.path];
     // Save the automatic artwork separately, including games with no automatic cover.
-    const automatic = game.automatic_cover_url !== undefined ? game.automatic_cover_url
+    let automatic = game.automatic_cover_url !== undefined ? game.automatic_cover_url
       : game.cover_url?.startsWith("asset:") ? null : game.cover_url ?? null;
+    if (automatic?.startsWith("file://")) {
+      try { automatic = convertFileSrc(decodeURIComponent(new URL(automatic).pathname)); }
+      catch { automatic = null; }
+    }
     return { ...game, automatic_cover_url: automatic, cover_url: typeof custom === "string" ? custom : automatic ?? undefined };
   });
 }

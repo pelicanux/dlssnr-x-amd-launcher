@@ -6,7 +6,12 @@ pub fn load_app_config() -> Option<AppConfig> {
 }
 
 #[tauri::command]
-pub fn save_app_config(config: AppConfig) -> Result<(), String> {
+pub fn save_app_config(mut config: AppConfig) -> Result<(), String> {
+    // Re-running the setup wizard must preserve the personal cover key.
+    if config.steamgriddb_api_key.is_none() {
+        config.steamgriddb_api_key = load_config().and_then(|old| old.steamgriddb_api_key);
+    }
+    if let Some(key) = &mut config.steamgriddb_api_key { *key = key.trim().to_string(); }
     save_config(&config)
 }
 

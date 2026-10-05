@@ -4,7 +4,7 @@ O launcher e os componentes de terceiros mantêm suas respectivas autorias e lic
 
 | Projeto ou aviso | Autoria | Texto incluído | Fonte original |
 | --- | --- | --- | --- |
-| DLSSNR X AMD | Pelicano · pelicanux | [MIT do launcher](../LICENSE) | [Repositório do launcher](https://github.com/pelicanux/dlssnr-x-amd) |
+| DLSSNR X AMD | Pelicano · pelicanux | [MIT do launcher](../LICENSE) | [Repositório do launcher](https://github.com/pelicanux/dlssnr-x-amd-launcher) |
 | DLSSNR-AMD | mochizuki0323 | [MIT original](DLSSNR-AMD-LICENSE.txt) | [LICENSE do backend](https://github.com/mochizuki0323/DLSSNR-AMD/blob/main/LICENSE) |
 | DLSSNR-RDNA3 | mauri870, a partir do projeto de mochizuki0323 | [MIT do fork](DLSSNR-RDNA3-LICENSE.txt) | [LICENSE do fork](https://github.com/mauri870/DLSSNR-RDNA3/blob/main/LICENSE) |
 | Componentes de terceiros do backend | Autores identificados nos avisos originais | [Avisos de terceiros](DLSSNR-AMD-THIRD-PARTY.md) | [THIRD_PARTY.md do backend](https://github.com/mochizuki0323/DLSSNR-AMD/blob/main/THIRD_PARTY.md) |

@@ -4,6 +4,7 @@ pub mod commands;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(commands::app_updates::AppUpdateState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -18,6 +19,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::app_updates::check_launcher_update,
+            commands::app_updates::download_launcher_update,
+            commands::app_updates::restart_launcher_update,
             commands::installer::install_mod,
             commands::installer::extract_dll,
             commands::installer::extract_dll_wizard,

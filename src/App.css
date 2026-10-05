@@ -1021,3 +1021,52 @@ body { height: 100dvh; min-height: 0; }
 .text-context-menu button:hover:not(:disabled) { background: rgba(237,28,36,.15); color: #ff7983; }
 .text-context-menu button:disabled { opacity: .4; cursor: default; }
 .text-context-menu p { padding: 0 .65rem; margin: .4rem 0; color: #ff7983; font-size: .75rem; }
+
+.credits-licenses { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid rgba(217,83,116,.2); }
+.credits-licenses h4 { display: flex; align-items: center; gap: .5rem; margin: 0 0 .7rem; font-size: 1rem; color: #f2f3fb; }
+.credits-licenses h4 svg { color: #ed354b; }
+.credits-license-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.credits-license-grid button, .credits-license-actions button, .credits-license-back {
+  background: rgba(153,163,198,.07); border: 1px solid rgba(153,163,198,.2); border-radius: 8px; color: #e2e8f0; padding: .65rem .75rem; cursor: pointer; font: inherit;
+}
+.credits-license-grid button { display: flex; flex-direction: column; gap: .3rem; text-align: left; min-width: 0; font-size: .8rem; }
+.credits-license-grid small { color: #94a3b8; font-size: .7rem; overflow-wrap: anywhere; }
+.credits-license-read { color: #f59aa9; font-size: .7rem; }
+.credits-license-grid button:hover, .credits-license-actions button:hover, .credits-license-back:hover { background: rgba(217,83,116,.12); border-color: rgba(217,83,116,.5); }
+.credits-license-grid button:focus-visible, .credits-license-actions button:focus-visible, .credits-license-back:focus-visible, .credits-license-text:focus-visible { outline: 2px solid #f59aa9; outline-offset: 2px; }
+.credits-dialog.license-dialog { max-width: 620px !important; display: flex; flex-direction: column; overflow: hidden; }
+.credits-license-back { align-self: flex-start; flex-shrink: 0; font-size: .8rem; margin-bottom: 1rem; }
+.credits-license-heading { margin: 0 0 .3rem; font-size: 1.2rem; color: #f2f3fb; flex-shrink: 0; }
+.credits-license-label { font-size: .8rem; color: #f59aa9; flex-shrink: 0; }
+.credits-license-note { font-size: .75rem; line-height: 1.5; color: #94a3b8; flex-shrink: 0; }
+.credits-license-text { min-height: 0; overflow: auto; overscroll-behavior: contain; margin: 0; padding: 1rem; border: 1px solid rgba(153,163,198,.15); border-radius: 9px; background: rgba(7,10,20,.4); color: #cbd5e1; font: .78rem/1.65 monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.credits-license-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; padding-top: 1rem; flex-shrink: 0; font-size: .8rem; }
+@media (max-width: 480px) { .credits-license-grid { grid-template-columns: 1fr; } }
+
+.cover-context-menu { position: fixed; z-index: 1000; width: min(280px, calc(100vw - 16px)); max-height: calc(100dvh - 66px); overflow-y: auto; display: flex; flex-direction: column; background: linear-gradient(125deg, #202330, #221a29); border: 1px solid rgba(217,83,116,.3); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.45); }
+.steamgrid-cover-hint { margin: .5rem; padding: .65rem; border: 1px solid rgba(251,191,36,.24); border-radius: 7px; background: rgba(251,191,36,.08); color: #e5c783; }
+.steamgrid-cover-hint.configured { border-color: rgba(52,211,153,.24); background: rgba(52,211,153,.06); color: #94d8bc; }
+.steamgrid-cover-hint p { margin: 0 0 .5rem; font-size: .75rem; line-height: 1.5; }
+.steamgrid-cover-hint button { display: flex; align-items: center; gap: .4rem; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: .75rem; cursor: pointer; text-decoration: underline; }
+.steamgrid-cover-hint svg { flex-shrink: 0; }
+.steamgrid-settings { padding: 1rem; margin-top: 1.2rem; border: 1px solid rgba(217,83,116,.25); border-radius: 10px; background: rgba(153,163,198,.04); }
+.steamgrid-settings h3 { font-size: 1rem; margin: 0 0 .5rem; color: #f2f3fb; }
+.steamgrid-settings p, .steamgrid-settings small { font-size: .8rem; line-height: 1.5; color: #94a3b8; }
+.steamgrid-settings label { display: block; color: #e2e8f0; font-size: .85rem; margin-bottom: .5rem; }
+.steamgrid-key-controls { display: flex; gap: .5rem; flex-wrap: wrap; }
+.steamgrid-key-controls input { flex: 1 1 240px; min-width: 0; margin: 0; padding: .6rem .7rem; border-radius: 7px; border: 1px solid rgba(153,163,198,.3); background: rgba(7,10,20,.35); color: #e2e8f0; font: inherit; font-size: .85rem; }
+.steamgrid-key-controls button, .steamgrid-settings-footer button { border: 1px solid rgba(153,163,198,.2); border-radius: 7px; padding: .45rem .65rem; background: rgba(153,163,198,.07); color: #e2e8f0; cursor: pointer; font: inherit; font-size: .75rem; }
+.steamgrid-settings-footer { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; margin: .6rem 0; color: #94a3b8; font-size: .75rem; }
+.steamgrid-key-controls button:disabled { opacity: .4; cursor: default; }
+.steamgrid-key-controls input:focus-visible, .steamgrid-key-controls button:focus-visible, .steamgrid-cover-hint button:focus-visible { outline: 2px solid #f59aa9; outline-offset: 2px; }
+
+.launcher-update-menu-button { display: flex; align-items: center; gap: .5rem; width: 100%; padding: .5rem .8rem; background: transparent !important; border: 0 !important; justify-content: flex-start; }
+.app-update-dialog { width: min(560px, 100%); max-width: 560px; outline: none; }
+.app-update-muted { color: #94a3b8; font-size: .85rem; }
+.app-update-notes { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; padding: 12px; background: rgba(255,255,255,.04); border-radius: 8px; font: inherit; font-size: .85rem; }
+.app-update-package { display: grid; gap: 8px; font-size: .9rem; }
+.app-update-package select { width: 100%; min-width: 0; padding: 10px; background: #23232e; color: #e2e8f0; border: 1px solid #3c3c4c; border-radius: 8px; }
+.app-update-dialog progress { width: 100%; accent-color: #ed1c24; }
+.app-update-error { color: #fca5a5; }
+.app-update-dialog .modal-actions { flex-wrap: wrap; gap: 8px; }
+.app-update-dialog .btn-primary { background: #d51420; border: 1px solid #ef3340; color: white; }
