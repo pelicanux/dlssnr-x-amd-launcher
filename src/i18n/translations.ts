@@ -4,6 +4,9 @@ export const translations = {
   pt: {
     launcherUpdate: {
       "title": "Atualizar programa",
+      "noneAvailable": "Não há atualizações disponíveis.",
+      "updateNotification": "Nova atualização disponível. Clique para atualizar.",
+      "checkFailed": "Não foi possível verificar atualizações. A busca será tentada novamente na próxima abertura.",
       "current": "Versão instalada:",
       "checking": "Verificando atualizações…",
       "noRelease": "Ainda não há uma versão publicada neste repositório.",
@@ -315,6 +318,9 @@ export const translations = {
   en: {
     launcherUpdate: {
       "title": "Update application",
+      "noneAvailable": "No updates available.",
+      "updateNotification": "New update available. Click to update.",
+      "checkFailed": "Could not check for updates. A new check will run the next time you open the application.",
       "current": "Installed version:",
       "checking": "Checking for updates…",
       "noRelease": "No release has been published in this repository yet.",

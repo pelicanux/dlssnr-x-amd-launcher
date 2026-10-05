@@ -6,14 +6,13 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useI18n } from "../i18n/I18nContext";
 import { APP_BUILD_LABEL } from "../services/buildInfo";
 
-type Package = { id: number; name: string; size: number };
-type Update = { latest: string | null; available: boolean; notes: string; packages: Package[]; preferred: number | null; appimage: boolean };
-export function AppUpdateModal({ onClose }: { onClose: () => void }) {
+import type { LauncherUpdateInfo } from "../services/launcherUpdates";
+export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; initialInfo?: LauncherUpdateInfo }) {
   const { t } = useI18n();
-  const [info, setInfo] = useState<Update | null>(null);
-  const [busy, setBusy] = useState(true);
+  const [info, setInfo] = useState<LauncherUpdateInfo | null>(initialInfo ?? null);
+  const [busy, setBusy] = useState(!initialInfo);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(initialInfo?.preferred ?? null);
   const [downloaded, setDownloaded] = useState("");
   const [progress, setProgress] = useState(0);
   const dialog = useRef<HTMLDivElement>(null);
@@ -24,7 +23,7 @@ export function AppUpdateModal({ onClose }: { onClose: () => void }) {
   };
   useEffect(() => {
     let active = true;
-    invoke<Update>("check_launcher_update").then(result => {
+    if (!initialInfo) invoke<LauncherUpdateInfo>("check_launcher_update").then(result => {
       if (active) { setInfo(result); setSelected(result.preferred); }
     }).catch(e => { if (active) setError(errorText(e)); }).finally(() => { if (active) setBusy(false); });
     const unsubscribe = listen<number>("launcher-download-progress", e => { if (active) setProgress(e.payload); }).catch(() => () => {});

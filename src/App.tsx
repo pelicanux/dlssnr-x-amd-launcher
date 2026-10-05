@@ -22,6 +22,8 @@ import { BitnessSelector } from "./components/BitnessSelector";
 import { InstallAction } from "./components/InstallAction";
 import { ResultModal } from "./components/ResultModal";
 import { UninstallModal } from "./components/UninstallModal";
+import { LauncherUpdateIndicator } from "./components/LauncherUpdateIndicator";
+import { checkLauncherUpdateOnStartup, type LauncherUpdateInfo, type LauncherUpdateStatus } from "./services/launcherUpdates";
 import { AppUpdateModal } from "./components/AppUpdateModal";
 import { BackendUpdaterModal } from "./components/BackendUpdaterModal";
 import { LoadingModal } from "./components/LoadingModal";
@@ -75,6 +77,17 @@ function App() {
   const [modalType, setModalType] = useState<"success" | "error">("success");
 
   const [showAppUpdate, setShowAppUpdate] = useState(false);
+  const [launcherUpdateInfo, setLauncherUpdateInfo] = useState<LauncherUpdateInfo | null>(null);
+  const [launcherUpdateStatus, setLauncherUpdateStatus] = useState<LauncherUpdateStatus>("checking");
+  useEffect(() => {
+    let active = true;
+    checkLauncherUpdateOnStartup().then(info => {
+      if (!active) return;
+      setLauncherUpdateInfo(info);
+      setLauncherUpdateStatus(info.available ? "available" : "current");
+    }).catch(() => { if (active) setLauncherUpdateStatus("error"); });
+    return () => { active = false; };
+  }, []);
   const [showUpdaterModal, setShowUpdaterModal] = useState(false);
   const [showInstructionsModal, setShowInstructionsModal] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
@@ -458,6 +471,8 @@ function App() {
         <TitleBar 
           onShowCredits={() => setShowCreditsModal(true)} 
           disabled={hasOpenDialog}
+          updateIndicator={<LauncherUpdateIndicator status={launcherUpdateStatus} disabled={hasOpenDialog}
+            onOpen={() => { setShowSettings(false); setShowAppUpdate(true); }} />}
           settingsMenu={
             <div style={{ position: "relative" }} ref={settingsRef}>
               <button 
@@ -489,11 +504,6 @@ function App() {
                       </div>
                     </button>
 
-
-                    <button className="btn btn-secondary launcher-update-menu-button" onClick={() => { setShowSettings(false); setShowAppUpdate(true); }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
-                      {t("launcherUpdate", "title")}
-                    </button>
 
                     <div className="effects-preference">
                       <span className="effects-preference-label">
@@ -877,7 +887,7 @@ function App() {
       />
     )}
 
-    {showAppUpdate && <AppUpdateModal onClose={() => setShowAppUpdate(false)} />}
+    {showAppUpdate && <AppUpdateModal initialInfo={launcherUpdateInfo ?? undefined} onClose={() => setShowAppUpdate(false)} />}
 
     {showUpdaterModal && (
       <BackendUpdaterModal 

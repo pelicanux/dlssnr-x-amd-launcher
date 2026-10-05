@@ -6,10 +6,11 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 interface TitleBarProps {
   onShowCredits: () => void;
   settingsMenu?: React.ReactNode;
+  updateIndicator?: React.ReactNode;
   disabled?: boolean;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({ onShowCredits, settingsMenu, disabled }) => {
+export const TitleBar: React.FC<TitleBarProps> = ({ onShowCredits, settingsMenu, updateIndicator, disabled }) => {
   const { t } = useI18n();
   const appWindow = getCurrentWindow();
 
@@ -60,6 +61,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({ onShowCredits, settingsMenu,
       {/* Right section: Links and Window Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '100%' }}>
         <div inert={disabled} style={{ display: 'flex', alignItems: 'center', opacity: disabled ? 0.3 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>
+          {updateIndicator}
           {settingsMenu && (
             <div data-tauri-drag-region="false" style={{ display: 'flex', alignItems: 'center' }}>
               {settingsMenu}
