@@ -10,6 +10,12 @@ Uma interface gráfica para organizar sua biblioteca, configurar o modelo de IA 
 
 **[Baixar o launcher](https://github.com/pelicanux/dlssnr-x-amd-launcher/releases)** · **[Licença MIT](LICENSE)** · **[Créditos e licenças](#créditos-e-licenças)**
 
+## Interface
+
+![Biblioteca do DLSSNR X AMD em modo grid, com busca e capas dos jogos](docs/images/launcher-library.png)
+
+Exemplo da biblioteca em modo grid, com a interface em português. Os jogos e as capas exibidos variam conforme a biblioteca do usuário.
+
 ## Recursos
 
 - Biblioteca com jogos da Steam, do Heroic e de diretórios adicionados manualmente.
