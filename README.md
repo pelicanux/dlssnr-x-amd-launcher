@@ -1,3 +1,5 @@
+**🇧🇷 Português | [🇺🇸 English](README.en.md)**
+
 <p align="center">
   <img src="src-tauri/icons/128x128.png" width="96" height="96" alt="Ícone do DLSSNR X AMD">
 </p>
