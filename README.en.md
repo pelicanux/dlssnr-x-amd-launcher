@@ -80,7 +80,7 @@ Or build only the AppImage:
 bun run tauri build --bundles appimage
 ```
 
-Packages are generated in `src-tauri/target/release/bundle/`, under the `appimage`, `deb`, and `rpm` subdirectories.
+Packages are generated in `src-tauri/target/release/bundle/`, under the `appimage`, `deb`, and `rpm` subdirectories. When using `bun run tauri build` (including `--bundles appimage`), newly generated packages and the executable are also copied automatically to `release/` at the project root for local use.
 
 ### Code structure
 

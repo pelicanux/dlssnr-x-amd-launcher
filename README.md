@@ -80,7 +80,7 @@ Ou apenas o AppImage:
 bun run tauri build --bundles appimage
 ```
 
-Os pacotes ficam em `src-tauri/target/release/bundle/`, nas subpastas `appimage`, `deb` e `rpm`.
+Os pacotes ficam em `src-tauri/target/release/bundle/`, nas subpastas `appimage`, `deb` e `rpm`. Ao usar `bun run tauri build` (inclusive com `--bundles appimage`), os pacotes gerados e o executável também são copiados automaticamente para `release/` na raiz do projeto, para uso local.
 
 ### Organização do código
 
