@@ -40,7 +40,7 @@ jobs:
           New-Item -ItemType Directory -Force artifacts | Out-Null
           Copy-Item launcher/scripts/patch-optiscaler-live.py upstream/LauncherControlSource/
           Copy-Item launcher/.github/workflows/build-optiscaler-live.yml upstream/LauncherControlSource/
-          7z a -ttar artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar ./upstream -xr!.git
+          7z a -ttar artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar ./upstream '-xr!.git'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           7z a -tgzip artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar.gz artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
