@@ -8,6 +8,7 @@ export type LauncherUpdateInfo = {
   packages: { id: number; name: string; size: number }[];
   preferred: number | null;
   appimage: boolean;
+  format: string;
 };
 export type LauncherUpdateStatus = "checking" | "available" | "current" | "error";
 

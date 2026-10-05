@@ -1,18 +1,20 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{io::Write, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, Ordering}}, time::Duration};
+use std::{io::{Read, Write}, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, Ordering}}, time::Duration};
 use tauri::{Emitter, Manager};
 
 const API: &str = "https://api.github.com/repos/pelicanux/dlssnr-x-amd-launcher/releases/latest";
 const DOWNLOAD_PREFIX: &str = "https://github.com/pelicanux/dlssnr-x-amd-launcher/releases/download/";
 #[derive(Default)]
-pub struct AppUpdateState { downloaded: Mutex<Option<PathBuf>>, busy: AtomicBool }
+pub struct AppUpdateState { downloaded: Mutex<Option<DownloadedUpdate>>, busy: AtomicBool }
+#[derive(Clone)]
+struct DownloadedUpdate { path: PathBuf, sha256: String }
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Package { id: u64, name: String, size: u64, browser_download_url: String, digest: Option<String> }
 #[derive(Deserialize)]
 struct Release { tag_name: String, body: Option<String>, assets: Vec<Package> }
 #[derive(Serialize)]
-pub struct UpdateInfo { current: String, latest: Option<String>, available: bool, notes: String, packages: Vec<Package>, preferred: Option<u64>, appimage: bool }
+pub struct UpdateInfo { current: String, latest: Option<String>, available: bool, notes: String, packages: Vec<Package>, preferred: Option<u64>, appimage: bool, format: String }
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder().user_agent("DLSSNR-X-AMD-Launcher")
         .connect_timeout(Duration::from_secs(10)).timeout(Duration::from_secs(600))
@@ -41,15 +43,22 @@ fn compatible(name: &str) -> bool {
     };
     format && arch && !name.contains('/') && !name.contains('\\') && !name.contains("..")
 }
+#[path = "update_policy.rs"]
+mod update_policy;
 fn preferred_format() -> &'static str {
-    if std::env::var_os("APPIMAGE").is_some() { ".appimage" }
-    else if std::path::Path::new("/usr/bin/rpm").exists() && !std::path::Path::new("/usr/bin/dpkg").exists() { ".rpm" }
-    else { ".deb" }
+    if std::env::var_os("APPIMAGE").is_some() { return ".appimage"; }
+    match tauri::utils::platform::bundle_type() {
+        Some(tauri::utils::config::BundleType::Deb) => return ".deb",
+        Some(tauri::utils::config::BundleType::Rpm) => return ".rpm",
+        _ => {}
+    }
+    update_policy::distro_format(&std::fs::read_to_string("/etc/os-release").unwrap_or_default())
+        .unwrap_or_else(|| if std::path::Path::new("/usr/bin/rpm").exists() && !std::path::Path::new("/usr/bin/dpkg").exists() { ".rpm" } else { ".deb" })
 }
 #[tauri::command]
 pub async fn check_launcher_update() -> Result<UpdateInfo, String> {
     let current = env!("CARGO_PKG_VERSION").to_string();
-    let mut info = UpdateInfo { current: current.clone(), latest: None, available: false, notes: String::new(), packages: vec![], preferred: None, appimage: std::env::var_os("APPIMAGE").is_some() };
+    let mut info = UpdateInfo { current: current.clone(), latest: None, available: false, notes: String::new(), packages: vec![], preferred: None, appimage: std::env::var_os("APPIMAGE").is_some(), format: preferred_format().into() };
     if let Some(release) = latest().await? {
         info.available = is_newer(&release.tag_name, &current)?;
         info.latest = Some(release.tag_name);
@@ -101,35 +110,70 @@ pub async fn download_launcher_update(app: tauri::AppHandle, state: tauri::State
     }.await;
     if result.is_err() { let _ = std::fs::remove_file(&partial); }
     result?;
-    *state.downloaded.lock().map_err(|_| "download".to_string())? = Some(target.clone());
+    *state.downloaded.lock().map_err(|_| "download".to_string())? = Some(DownloadedUpdate { path: target.clone(), sha256: expected });
     Ok(target.to_string_lossy().to_string())
 }
 #[tauri::command]
-pub fn restart_launcher_update(app: tauri::AppHandle, state: tauri::State<'_, AppUpdateState>) -> Result<(), String> {
+pub async fn restart_launcher_update(app: tauri::AppHandle, state: tauri::State<'_, AppUpdateState>) -> Result<(), String> {
+    if state.busy.swap(true, Ordering::AcqRel) { return Err("busy".into()); }
+    let _guard = BusyGuard(&state.busy);
     let downloaded = state.downloaded.lock().map_err(|_| "apply".to_string())?.clone().ok_or("download")?;
-    if !downloaded.to_string_lossy().to_ascii_lowercase().ends_with(".appimage") { return Err("manualInstall".into()); }
-    let current = PathBuf::from(std::env::var_os("APPIMAGE").ok_or("manualInstall")?);
-    #[cfg(unix)] {
-        use std::os::unix::fs::PermissionsExt;
-        let staged = current.with_file_name(format!(".dlssnr-update-{}.AppImage", uuid::Uuid::new_v4()));
-        let backup = current.with_extension("AppImage.previous");
-        let result = (|| {
-            std::fs::copy(&downloaded, &staged).map_err(|_| "apply".to_string())?;
-            std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o755)).map_err(|_| "apply".to_string())?;
-            std::fs::copy(&current, &backup).map_err(|_| "apply".to_string())?;
-            std::fs::rename(&staged, &current).map_err(|_| "apply".to_string())?;
-            if std::process::Command::new(&current).env_remove("APPIMAGE").env_remove("APPDIR").env_remove("LD_LIBRARY_PATH").env_remove("LD_PRELOAD").spawn().is_err() {
-                let _ = std::fs::rename(&backup, &current);
-                return Err("apply".into());
-            }
-            Ok::<(), String>(())
-        })();
-        let _ = std::fs::remove_file(&staged);
-        result?;
-        app.exit(0);
-        Ok(())
+    // Authentication and package installation must not block the webview thread.
+    tauri::async_runtime::spawn_blocking(move || apply_downloaded_update(app, downloaded))
+        .await.map_err(|_| "apply".to_string())?
+}
+fn apply_downloaded_update(app: tauri::AppHandle, update: DownloadedUpdate) -> Result<(), String> {
+    let downloaded = update.path;
+    let lower_path = downloaded.to_string_lossy().to_ascii_lowercase();
+    if !lower_path.ends_with(preferred_format()) { return Err("manualInstall".into()); }
+    // Detect cache changes between downloading and applying a package.
+    let mut file = std::fs::File::open(&downloaded).map_err(|_| "download".to_string())?;
+    let mut hash = Sha256::new();
+    let mut buffer = [0u8; 65536];
+    loop {
+        let count = file.read(&mut buffer).map_err(|_| "download".to_string())?;
+        if count == 0 { break; }
+        hash.update(&buffer[..count]);
     }
-    #[cfg(not(unix))] { let _ = (app, current); Err("manualInstall".into()) }
+    if format!("{:x}", hash.finalize()) != update.sha256 { return Err("checksum".into()); }
+    #[cfg(unix)] {
+        if lower_path.ends_with(".appimage") {
+            let current = PathBuf::from(std::env::var_os("APPIMAGE").ok_or("manualInstall")?);
+            use std::os::unix::fs::PermissionsExt;
+            let staged = current.with_file_name(format!(".dlssnr-update-{}.AppImage", uuid::Uuid::new_v4()));
+            let backup = current.with_extension("AppImage.previous");
+            let result = (|| {
+                std::fs::copy(&downloaded, &staged).map_err(|_| "apply".to_string())?;
+                std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o755)).map_err(|_| "apply".to_string())?;
+                std::fs::copy(&current, &backup).map_err(|_| "apply".to_string())?;
+                std::fs::rename(&staged, &current).map_err(|_| "apply".to_string())?;
+                if std::process::Command::new(&current).env_remove("APPIMAGE").env_remove("APPDIR").env_remove("LD_LIBRARY_PATH").env_remove("LD_PRELOAD").spawn().is_err() {
+                    let _ = std::fs::rename(&backup, &current);
+                    return Err("apply".into());
+                }
+                Ok::<(), String>(())
+            })();
+            let _ = std::fs::remove_file(&staged);
+            result?;
+            app.exit(0);
+            return Ok(());
+        } else if lower_path.ends_with(".deb") || lower_path.ends_with(".rpm") {
+            let executable = std::env::current_exe().map_err(|_| "apply".to_string())?;
+            let (manager, arguments) = update_policy::installer_plan(preferred_format(), |path| std::path::Path::new(path).is_file())
+                .ok_or("manualInstall")?;
+            let status = std::process::Command::new("/usr/bin/pkexec")
+                .arg(manager).args(arguments).arg(&downloaded)
+                .stdin(std::process::Stdio::null())
+                .status().map_err(|_| "pkexecFailed".to_string())?;
+            update_policy::installation_result(status.code())?;
+            // Only the package manager ran as root; the relaunched UI keeps the user's identity.
+            std::process::Command::new(executable).spawn().map_err(|_| "restartFailed".to_string())?;
+            app.exit(0);
+            return Ok(());
+        }
+        return Err("manualInstall".into());
+    }
+    #[cfg(not(unix))] { let _ = (app, lower_path); Err("manualInstall".into()) }
 }
 #[cfg(test)]
 mod tests {

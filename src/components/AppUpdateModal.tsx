@@ -10,6 +10,7 @@ import type { LauncherUpdateInfo } from "../services/launcherUpdates";
 export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; initialInfo?: LauncherUpdateInfo }) {
   const { t } = useI18n();
   const [info, setInfo] = useState<LauncherUpdateInfo | null>(initialInfo ?? null);
+  const [applying, setApplying] = useState(false);
   const [busy, setBusy] = useState(!initialInfo);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<number | null>(initialInfo?.preferred ?? null);
@@ -18,7 +19,7 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
   const dialog = useRef<HTMLDivElement>(null);
   const errorText = (error: unknown) => {
     const code = String(error);
-    const keys = ["network", "rateLimit", "invalidRelease", "noPackage", "checksumMissing", "checksum", "apply", "download", "manualInstall"] as const;
+    const keys = ["network", "rateLimit", "invalidRelease", "noPackage", "checksumMissing", "checksum", "apply", "download", "manualInstall", "pkexecFailed", "authCancelled", "packageInstallFailed", "restartFailed"] as const;
     return t("launcherUpdate", keys.find(key => key === code) ?? "network");
   };
   useEffect(() => {
@@ -38,13 +39,15 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
     finally { setBusy(false); }
   };
   const apply = async () => {
-    setBusy(true); setError("");
+    setBusy(true); setApplying(true); setError("");
     try { await invoke("restart_launcher_update"); }
-    catch (e) { setError(errorText(e)); setBusy(false); }
+    catch (e) { setError(errorText(e)); setBusy(false); setApplying(false); }
   };
   const showFile = async () => { try { await revealItemInDir(downloaded); } catch { setError(t("launcherUpdate", "download")); } };
   const packageSelected = info?.packages.find(p => p.id === selected);
-  const canRestart = info?.appimage && packageSelected?.name.toLowerCase().endsWith(".appimage");
+  const extension = packageSelected?.name.toLowerCase().match(/\.(appimage|deb|rpm)$/)?.[0];
+  const canApply = !!extension && extension === info?.format && (extension !== ".appimage" || info?.appimage);
+
   return createPortal(<div className="modal-overlay" style={{ zIndex: 3000 }}>
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="launcher-update-title" className="modal-content dialog-glass app-update-dialog" onKeyDown={e => {
       if (e.key === "Escape" && !busy) { e.stopPropagation(); onClose(); }
@@ -69,18 +72,18 @@ export function AppUpdateModal({ onClose, initialInfo }: { onClose: () => void; 
                 {info.packages.map(p => <option key={p.id} value={p.id}>{p.name} ({(p.size / 1048576).toFixed(1)} MB)</option>)}
               </select>
             </label> : <p>{t("launcherUpdate", "noPackage")}</p>}
-            {!canRestart && <p className="app-update-muted">{t("launcherUpdate", "manualInstall")}</p>}
+            {!canApply && <p className="app-update-muted">{t("launcherUpdate", "manualInstall")}</p>}
           </>}
         </>}
-        {busy && info && <div><p>{t("launcherUpdate", "downloading")} {progress}%</p><progress max={100} value={progress}/></div>}
+        {busy && info && <div><p>{applying ? t("launcherUpdate", "applying") : `${t("launcherUpdate", "downloading")} ${progress}%`}</p>{!applying && <progress max={100} value={progress}/>}</div>}
         {!!downloaded && <p>{t("launcherUpdate", "ready")}</p>}
         {error && <p className="app-update-error" role="alert">{error}</p>}
       </div>
       <div className="modal-actions">
         <button className="btn btn-secondary" disabled={busy} onClick={async () => { try { await openUrl("https://github.com/pelicanux/dlssnr-x-amd-launcher/releases"); } catch { setError(t("launcherUpdate", "network")); } }}>{t("launcherUpdate", "releases")}</button>
         <button className="btn btn-secondary" disabled={busy} onClick={onClose}>{t("launcherUpdate", "close")}</button>
-        {!!downloaded && canRestart && <button className="btn btn-secondary" disabled={busy} onClick={showFile}>{t("launcherUpdate", "showFile")}</button>}
-        {info?.available && !!info.packages.length && (!downloaded ? <button className="btn btn-primary" disabled={busy} onClick={download}>{t("launcherUpdate", "downloadButton")}</button> : <button className="btn btn-primary" disabled={busy} onClick={canRestart ? apply : showFile}>{t("launcherUpdate", canRestart ? "restart" : "showFile")}</button>)}
+        {!!downloaded && canApply && <button className="btn btn-secondary" disabled={busy} onClick={showFile}>{t("launcherUpdate", "showFile")}</button>}
+        {info?.available && !!info.packages.length && (!downloaded ? <button className="btn btn-primary" disabled={busy} onClick={download}>{t("launcherUpdate", "downloadButton")}</button> : <button className="btn btn-primary" disabled={busy} onClick={canApply ? apply : showFile}>{t("launcherUpdate", canApply ? "restart" : "showFile")}</button>)}
       </div>
     </div>
   </div>, document.body);
