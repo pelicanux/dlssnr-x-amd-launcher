@@ -16,7 +16,9 @@ export function AppUpdateModal({ onClose, initialInfo, onDownloadProgress }: { o
   const [applying, setApplying] = useState(false);
   const [busy, setBusy] = useState(!initialInfo);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<number | null>(initialInfo?.preferred ?? null);
+  const matchingPackages = info?.packages.filter(p => !!info.format && p.name.toLowerCase().endsWith(info.format)) ?? [];
+  const packageSelected = matchingPackages.find(p => p.id === info?.preferred) ?? matchingPackages[0];
+  const selected = packageSelected?.id ?? null;
   const [downloaded, setDownloaded] = useState("");
   const [progress, setProgress] = useState<LauncherDownloadProgress>({ percent: 0, bytesPerSecond: 0, received: 0, total: 0 });
   const downloadActive = useRef(false);
@@ -30,7 +32,7 @@ export function AppUpdateModal({ onClose, initialInfo, onDownloadProgress }: { o
   useEffect(() => {
     let active = true;
     if (!initialInfo) invoke<LauncherUpdateInfo>("check_launcher_update").then(result => {
-      if (active) { setInfo(result); setSelected(result.preferred); }
+      if (active) { setInfo(result); }
     }).catch(e => { if (active) setError(errorText(e)); }).finally(() => { if (active) setBusy(false); });
     const unsubscribe = listen<LauncherDownloadProgress>("launcher-download-progress", e => {
       if (active && downloadActive.current) { setProgress(e.payload); onDownloadProgress?.(e.payload); }
@@ -56,7 +58,6 @@ export function AppUpdateModal({ onClose, initialInfo, onDownloadProgress }: { o
     catch (e) { setError(errorText(e)); setBusy(false); setApplying(false); }
   };
   const showFile = async () => { try { await revealItemInDir(downloaded); } catch { setError(t("launcherUpdate", "download")); } };
-  const packageSelected = info?.packages.find(p => p.id === selected);
   const extension = packageSelected?.name.toLowerCase().match(/\.(appimage|deb|rpm)$/)?.[0];
   const canApply = !!extension && extension === info?.format && (extension !== ".appimage" || info?.appimage);
 
@@ -86,12 +87,15 @@ export function AppUpdateModal({ onClose, initialInfo, onDownloadProgress }: { o
           <p>{!info.latest ? t("launcherUpdate", "noRelease") : info.available ? `${t("launcherUpdate", "available")} ${info.latest}` : t("launcherUpdate", "upToDate")}</p>
           {info.available && <>
             {info.notes && <pre className="app-update-notes" tabIndex={0}>{info.notes}</pre>}
-            {info.packages.length ? <label className="app-update-package">{t("launcherUpdate", "package")}
-              <select disabled={busy || !!downloaded} value={selected ?? ""} onChange={e => setSelected(Number(e.target.value))}>
-                {info.packages.map(p => <option key={p.id} value={p.id}>{p.name} ({(p.size / 1048576).toFixed(1)} MB)</option>)}
-              </select>
-            </label> : <p>{t("launcherUpdate", "noPackage")}</p>}
-            {!canApply && <p className="app-update-muted">{t("launcherUpdate", "manualInstall")}</p>}
+            {packageSelected ? <div className="app-update-package">
+              <span className="app-update-muted">{t("launcherUpdate", "automaticPackage")}</span>
+              <div className="app-update-package-card">
+                <span className="app-update-package-format">{info.format.slice(1).toUpperCase()}</span>
+                <div><strong>{packageSelected.name}</strong><small>{(packageSelected.size / 1048576).toFixed(1)} MB</small></div>
+                <span className="app-update-package-check" aria-hidden="true">✓</span>
+              </div>
+            </div> : <p>{t("launcherUpdate", "noPackage")}</p>}
+            {packageSelected && !canApply && <p className="app-update-muted">{t("launcherUpdate", "manualInstall")}</p>}
           </>}
         </>}
         {busy && info && (applying ? <p>{t("launcherUpdate", "applying")}</p> :
@@ -106,7 +110,7 @@ export function AppUpdateModal({ onClose, initialInfo, onDownloadProgress }: { o
         <button className="btn btn-secondary" disabled={busy} onClick={async () => { try { await openUrl("https://github.com/pelicanux/dlssnr-x-amd-launcher/releases"); } catch { setError(t("launcherUpdate", "network")); } }}>{t("launcherUpdate", "releases")}</button>
         <button className="btn btn-secondary" disabled={busy} onClick={onClose}>{t("launcherUpdate", "close")}</button>
         {!!downloaded && canApply && <button className="btn btn-secondary" disabled={busy} onClick={showFile}>{t("launcherUpdate", "showFile")}</button>}
-        {info?.available && !!info.packages.length && (!downloaded ? <button className="btn btn-primary" disabled={busy} onClick={download}>{t("launcherUpdate", "downloadButton")}</button> : <button className="btn btn-primary" disabled={busy} onClick={canApply ? () => setConfirming(true) : showFile}>{t("launcherUpdate", canApply ? "restart" : "showFile")}</button>)}
+        {info?.available && !!packageSelected && (!downloaded ? <button className="btn btn-primary" disabled={busy} onClick={download}>{t("launcherUpdate", "downloadButton")}</button> : <button className="btn btn-primary" disabled={busy} onClick={canApply ? () => setConfirming(true) : showFile}>{t("launcherUpdate", canApply ? "restart" : "showFile")}</button>)}
       </div>
       </>}
     </div>

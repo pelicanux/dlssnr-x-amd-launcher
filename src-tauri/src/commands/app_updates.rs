@@ -48,12 +48,13 @@ mod update_policy;
 fn preferred_format() -> &'static str {
     if std::env::var_os("APPIMAGE").is_some() { return ".appimage"; }
     match tauri::utils::platform::bundle_type() {
+        Some(tauri::utils::config::BundleType::AppImage) => return ".appimage",
         Some(tauri::utils::config::BundleType::Deb) => return ".deb",
         Some(tauri::utils::config::BundleType::Rpm) => return ".rpm",
         _ => {}
     }
     update_policy::distro_format(&std::fs::read_to_string("/etc/os-release").unwrap_or_default())
-        .unwrap_or_else(|| if std::path::Path::new("/usr/bin/rpm").exists() && !std::path::Path::new("/usr/bin/dpkg").exists() { ".rpm" } else { ".deb" })
+        .unwrap_or_else(|| if std::path::Path::new("/usr/bin/rpm").exists() && !std::path::Path::new("/usr/bin/dpkg").exists() { ".rpm" } else if std::path::Path::new("/usr/bin/dpkg").exists() && !std::path::Path::new("/usr/bin/rpm").exists() { ".deb" } else { "" })
 }
 #[tauri::command]
 pub async fn check_launcher_update() -> Result<UpdateInfo, String> {
@@ -63,8 +64,8 @@ pub async fn check_launcher_update() -> Result<UpdateInfo, String> {
         info.available = is_newer(&release.tag_name, &current)?;
         info.latest = Some(release.tag_name);
         info.notes = release.body.unwrap_or_default();
-        info.packages = release.assets.into_iter().filter(|a| compatible(&a.name) && a.browser_download_url.starts_with(DOWNLOAD_PREFIX)).collect();
-        info.preferred = info.packages.iter().find(|a| a.name.to_ascii_lowercase().ends_with(preferred_format())).or_else(|| info.packages.first()).map(|a| a.id);
+        info.packages = release.assets.into_iter().filter(|a| compatible(&a.name) && update_policy::package_matches_format(&a.name, &info.format) && a.browser_download_url.starts_with(DOWNLOAD_PREFIX)).collect();
+        info.preferred = info.packages.first().map(|a| a.id);
     }
     Ok(info)
 }
@@ -81,7 +82,7 @@ pub async fn download_launcher_update(app: tauri::AppHandle, state: tauri::State
     // Resolve the ID against our repository again; never accept a URL or path from the webview.
     let release = latest().await?.ok_or("noRelease")?;
     if !is_newer(&release.tag_name, env!("CARGO_PKG_VERSION"))? { return Err("upToDate".into()); }
-    let asset = release.assets.into_iter().find(|a| a.id == asset_id && compatible(&a.name) && a.browser_download_url.starts_with(DOWNLOAD_PREFIX)).ok_or("noPackage")?;
+    let asset = release.assets.into_iter().find(|a| a.id == asset_id && compatible(&a.name) && update_policy::package_matches_format(&a.name, preferred_format()) && a.browser_download_url.starts_with(DOWNLOAD_PREFIX)).ok_or("noPackage")?;
     let expected = asset.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")).filter(|d| d.len() == 64 && d.bytes().all(|b| b.is_ascii_hexdigit())).ok_or("checksumMissing")?.to_ascii_lowercase();
     let folder = app.path().app_cache_dir().map_err(|_| "download".to_string())?.join("updates");
     std::fs::create_dir_all(&folder).map_err(|_| "download".to_string())?;

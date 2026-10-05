@@ -3,6 +3,7 @@ export type Language = "pt" | "en";
 export const translations = {
   pt: {
     launcherUpdate: {
+      automaticPackage: "Pacote selecionado automaticamente",
       "title": "Atualizar programa",
       "noneAvailable": "Não há atualizações disponíveis.",
       "updateNotification": "Nova atualização disponível. Clique para atualizar.",
@@ -336,6 +337,7 @@ export const translations = {
   },
   en: {
     launcherUpdate: {
+      automaticPackage: "Automatically selected package",
       "title": "Update application",
       "noneAvailable": "No updates available.",
       "updateNotification": "New update available. Click to update.",
