@@ -1,0 +1,73 @@
+name: Build OptiScaler live control (experimental)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/optiscaler-live-control']
+    paths:
+      - '.github/workflows/build-optiscaler-live.yml'
+      - 'native/optiscaler-live/**'
+      - 'scripts/patch-optiscaler-live.py'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: launcher
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass
+          ref: 8802b2b470db0462fa1ed03a125e793a7c06d735
+          path: upstream
+          submodules: recursive
+          persist-credentials: false
+      - name: Apply the version-checked GPLv3 adaptation
+        shell: pwsh
+        run: |
+          python launcher/scripts/patch-optiscaler-live.py upstream
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: microsoft/setup-msbuild@v2
+      - name: Prepare reproducible corresponding source
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          Copy-Item launcher/scripts/patch-optiscaler-live.py upstream/LauncherControlSource/
+          Copy-Item launcher/.github/workflows/build-optiscaler-live.yml upstream/LauncherControlSource/
+          7z a -ttar artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar ./upstream -xr!.git
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          7z a -tgzip artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar.gz artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item artifacts/OptiScaler-NR-v0.8.4-launcher-source.tar
+      - name: Build the modified 64-bit OptiScaler DLL
+        working-directory: upstream
+        shell: pwsh
+        run: |
+          msbuild OptiScaler.sln /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Package the DLL with its corresponding source and licenses
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem upstream/x64/Release -Recurse -Filter OptiScaler.dll | Select-Object -First 1
+          if (-not $dll) { throw 'Modified OptiScaler.dll was not generated.' }
+          Copy-Item $dll.FullName artifacts/OptiScaler.dll
+          Copy-Item upstream/LICENSE artifacts/LICENSE-OptiScaler-GPLv3
+          Copy-Item launcher/native/optiscaler-live/upstream.json artifacts/upstream.json
+          Copy-Item launcher/native/optiscaler-live/README.md artifacts/README.md
+          $hash = (Get-FileHash artifacts/OptiScaler.dll -Algorithm SHA256).Hash.ToLowerInvariant()
+          @{ protocol = 1; upstream = 'v0.8.4'; sha256 = $hash; source = 'OptiScaler-NR-v0.8.4-launcher-source.tar.gz' } |
+            ConvertTo-Json | Set-Content artifacts/launcher-control.json -Encoding utf8
+          7z a -tzip OptiScaler-NR-v0.8.4-launcher-control.zip ./artifacts/*
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        with:
+          path: OptiScaler-NR-v0.8.4-launcher-control.zip
+          archive: false
+          if-no-files-found: error
+          retention-days: 30

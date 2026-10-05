@@ -1,0 +1,41 @@
+--- a/OptiScaler/menu/menu_common.cpp
++++ b/OptiScaler/menu/menu_common.cpp
+@@ -1,6 +1,7 @@
+ #include "pch.h"
+ #include <dlssnr/DlssNr_MenuOverlay.h>
+ #include "menu_common.h"
++#include <dlssnr/LauncherControl.h>
+ #if defined(OPTISCALER_RTX40_MFG)
+ #include <framegen/dlssg/MfgUnlock.h>
+ #endif
+@@ -1339,8 +1340,22 @@
+ static double lastFrameTime = 0.0;
+ static UINT64 uwpTargetFrame = 0;
+ 
++extern "C" __declspec(dllexport) int DLSSNR_LauncherControlProtocolV1() { return 1; }
++
++static void PollDlssNrLauncherControl()
++{
++    static DlssNrLauncher::Receiver receiver;
++    receiver.Poll(Util::DllPath().parent_path(), [](bool enabled) {
++        auto config = Config::Instance();
++        if (config == nullptr) return false;
++        config->DlssNrEnabled = enabled;
++        return config->DlssNrEnabled.value_or_default() == enabled;
++    });
++}
++
+ void MenuCommon::Present()
+ {
++    PollDlssNrLauncherControl();
+     _frameCount++;
+ 
+     auto now = Util::MillisecondsNow();
+@@ -1392,6 +1407,7 @@
+ 
+ void MenuCommon::UpdateRenderTiming(RenderMenuContext& ctx)
+ {
++    PollDlssNrLauncherControl();
+     auto& state = ctx.state;
+     auto config = ctx.config;
+     auto& now = ctx.now;

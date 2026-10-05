@@ -1,0 +1,8 @@
+{
+  "repository": "wilsjo2/OptiScaler-DLSSNR-PreSR-Multipass",
+  "version": "v0.8.4",
+  "commit": "8802b2b470db0462fa1ed03a125e793a7c06d735",
+  "menu_sha256": "5ef20c3bbec0c3626448a93ca1be2eb36c0f694a27e60a3fdb176f7ee6d26227",
+  "license": "GPL-3.0-only",
+  "protocol": 1
+}
