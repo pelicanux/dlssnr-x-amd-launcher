@@ -6,9 +6,9 @@
 
 # DLSSNR X AMD
 
-**DLSS Neural Rendering launcher and installer for AMD on Linux**, developed by [Pelicano · pelicanux](https://github.com/pelicanux).
+**Graphical frontend (launcher) for DLSS Neural Rendering on AMD GPUs running Linux**, developed by [Pelicano · pelicanux](https://github.com/pelicanux).
 
-A graphical interface to organize your library, configure the AI model, and install, repair, update, or remove the mod from your games. The launcher integrates the [DLSSNR-AMD](https://github.com/mochizuki0323/DLSSNR-AMD) and [DLSSNR-RDNA3](https://github.com/mauri870/DLSSNR-RDNA3) backends; the neural rendering implementation belongs to those projects.
+A graphical interface to organize your library, configure the AI model, and install, repair, update, or remove the mod from your games. Installation operations are performed by the **DLSSNR-AMD** project's installer, authored by **mochizuki0323**, which runs behind the interface. The launcher integrates the [DLSSNR-AMD](https://github.com/mochizuki0323/DLSSNR-AMD) and [DLSSNR-RDNA3](https://github.com/mauri870/DLSSNR-RDNA3) backends; the neural rendering implementation belongs to those projects.
 
 **[Download the launcher](https://github.com/pelicanux/dlssnr-x-amd-launcher/releases)** · **[MIT license](LICENSE)** · **[Credits and licenses](#credits-and-licenses)**
 
@@ -98,11 +98,11 @@ Packages are generated in `src-tauri/target/release/bundle/`, under the `appimag
 
 | Project | Authorship and contribution | License and notices |
 | --- | --- | --- |
-| **DLSSNR X AMD** | [Pelicano · pelicanux](https://github.com/pelicanux): launcher, graphical interface, and backend integration on Linux. | [MIT — Copyright (c) 2026 Pelicano](LICENSE) |
-| **DLSSNR-AMD** | [mochizuki0323](https://github.com/mochizuki0323): original backend and its installation/model tools, used as the basis for integration. | [Original MIT license](https://github.com/mochizuki0323/DLSSNR-AMD/blob/main/LICENSE) · [Preserved copy](licenses/DLSSNR-AMD-LICENSE.txt) |
+| **DLSSNR X AMD** | [Pelicano · pelicanux](https://github.com/pelicanux): frontend and graphical interface of the launcher on Linux. | [MIT — Copyright (c) 2026 Pelicano](LICENSE) |
+| **DLSSNR-AMD** | [mochizuki0323](https://github.com/mochizuki0323): original mod backend and installer, including the model tools used by the interface. | [Original MIT license](https://github.com/mochizuki0323/DLSSNR-AMD/blob/main/LICENSE) · [Preserved copy](licenses/DLSSNR-AMD-LICENSE.txt) |
 | **DLSSNR-RDNA3** | [mauri870](https://github.com/mauri870): RDNA 3 fork, derived from mochizuki0323's work. | [Fork's MIT license](https://github.com/mauri870/DLSSNR-RDNA3/blob/main/LICENSE) · [Preserved copy](licenses/DLSSNR-RDNA3-LICENSE.txt) |
 
-Credit for the launcher does not replace backend authorship. Original copyright notices are preserved, including **Copyright (c) 2026 mochizuki0323** in the RDNA3 fork's license text. The application also provides access to the original texts under **About → Licenses and notices**, including offline access.
+Pelicano is responsible for the frontend; mochizuki0323 authored the original installer and backend, with the RDNA3 fork maintained by mauri870. Original copyright notices are preserved, including **Copyright (c) 2026 mochizuki0323** in the RDNA3 fork's license text. The application also provides access to the original texts under **About → Licenses and notices**, including offline access.
 
 ### Launcher technologies
 
