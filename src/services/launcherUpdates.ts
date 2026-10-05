@@ -16,7 +16,7 @@ let startupCheck: Promise<LauncherUpdateInfo> | undefined;
 export function checkLauncherUpdateOnStartup() {
   return startupCheck ??= (async () => {
     // Keep startup feedback visible even when GitHub responds before the first frames.
-    const feedback = new Promise<void>(resolve => setTimeout(resolve, 1200));
+    const feedback = new Promise<void>(resolve => setTimeout(resolve, 3000));
     try { return await invoke<LauncherUpdateInfo>("check_launcher_update"); }
     finally { await feedback; }
   })();
