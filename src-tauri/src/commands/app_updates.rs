@@ -57,7 +57,16 @@ fn preferred_format() -> &'static str {
         .unwrap_or_else(|| if std::path::Path::new("/usr/bin/rpm").exists() && !std::path::Path::new("/usr/bin/dpkg").exists() { ".rpm" } else if std::path::Path::new("/usr/bin/dpkg").exists() && !std::path::Path::new("/usr/bin/rpm").exists() { ".deb" } else { "" })
 }
 #[tauri::command]
-pub async fn check_launcher_update() -> Result<UpdateInfo, String> {
+pub async fn check_launcher_update(app: tauri::AppHandle) -> Result<UpdateInfo, String> {
+    crate::core::logger::log_launcher(&app, "INFO", "Verificando atualizações do launcher");
+    let result = check_launcher_update_inner().await;
+    match &result {
+        Ok(info) => crate::core::logger::log_launcher(&app, "INFO", &format!("Atualizações: instalada={}, disponível={}, nova={}, formato={}, pacotes compatíveis={}", info.current, info.latest.as_deref().unwrap_or("nenhuma"), info.available, info.format, info.packages.len())),
+        Err(error) => crate::core::logger::log_launcher(&app, "ERROR", &format!("Falha ao verificar atualizações: {error}")),
+    }
+    result
+}
+async fn check_launcher_update_inner() -> Result<UpdateInfo, String> {
     let current = env!("CARGO_PKG_VERSION").to_string();
     let mut info = UpdateInfo { current: current.clone(), latest: None, available: false, notes: String::new(), packages: vec![], preferred: None, appimage: std::env::var_os("APPIMAGE").is_some(), format: preferred_format().into() };
     if let Some(release) = latest().await? {
@@ -76,6 +85,13 @@ struct BusyGuard<'a>(&'a AtomicBool);
 impl Drop for BusyGuard<'_> { fn drop(&mut self) { self.0.store(false, Ordering::Release); } }
 #[tauri::command]
 pub async fn download_launcher_update(app: tauri::AppHandle, state: tauri::State<'_, AppUpdateState>, asset_id: u64) -> Result<String, String> {
+    let logger_app = app.clone();
+    crate::core::logger::log_launcher(&logger_app, "INFO", "Download de atualização: iniciado");
+    let result = download_launcher_update_inner(app, state, asset_id).await;
+    crate::core::logger::log_result(&logger_app, "Download de atualização", &result);
+    result
+}
+async fn download_launcher_update_inner(app: tauri::AppHandle, state: tauri::State<'_, AppUpdateState>, asset_id: u64) -> Result<String, String> {
     if state.busy.swap(true, Ordering::AcqRel) { return Err("busy".into()); }
     let _guard = BusyGuard(&state.busy);
     *state.downloaded.lock().map_err(|_| "download".to_string())? = None;
@@ -127,6 +143,13 @@ pub async fn download_launcher_update(app: tauri::AppHandle, state: tauri::State
 }
 #[tauri::command]
 pub async fn restart_launcher_update(app: tauri::AppHandle, state: tauri::State<'_, AppUpdateState>) -> Result<(), String> {
+    let logger_app = app.clone();
+    crate::core::logger::log_launcher(&logger_app, "INFO", "Instalação e reinício da atualização: iniciado");
+    let result = restart_launcher_update_inner(app, state).await;
+    crate::core::logger::log_result(&logger_app, "Instalação e reinício da atualização", &result);
+    result
+}
+async fn restart_launcher_update_inner(app: tauri::AppHandle, state: tauri::State<'_, AppUpdateState>) -> Result<(), String> {
     if state.busy.swap(true, Ordering::AcqRel) { return Err("busy".into()); }
     let _guard = BusyGuard(&state.busy);
     let downloaded = state.downloaded.lock().map_err(|_| "apply".to_string())?.clone().ok_or("download")?;
@@ -148,6 +171,7 @@ fn apply_downloaded_update(app: tauri::AppHandle, update: DownloadedUpdate) -> R
         hash.update(&buffer[..count]);
     }
     if format!("{:x}", hash.finalize()) != update.sha256 { return Err("checksum".into()); }
+    drop(file);
     #[cfg(unix)] {
         if lower_path.ends_with(".appimage") {
             let current = PathBuf::from(std::env::var_os("APPIMAGE").ok_or("manualInstall")?);
@@ -167,6 +191,8 @@ fn apply_downloaded_update(app: tauri::AppHandle, update: DownloadedUpdate) -> R
             })();
             let _ = std::fs::remove_file(&staged);
             result?;
+            cleanup_installed_update(&app);
+            crate::core::logger::log_launcher(&app, "INFO", "Atualização aplicada; reiniciando launcher");
             app.exit(0);
             return Ok(());
         } else if lower_path.ends_with(".deb") || lower_path.ends_with(".rpm") {
@@ -178,8 +204,10 @@ fn apply_downloaded_update(app: tauri::AppHandle, update: DownloadedUpdate) -> R
                 .stdin(std::process::Stdio::null())
                 .status().map_err(|_| "pkexecFailed".to_string())?;
             update_policy::installation_result(status.code())?;
+            cleanup_installed_update(&app);
             // Only the package manager ran as root; the relaunched UI keeps the user's identity.
             std::process::Command::new(executable).spawn().map_err(|_| "restartFailed".to_string())?;
+            crate::core::logger::log_launcher(&app, "INFO", "Atualização aplicada; reiniciando launcher");
             app.exit(0);
             return Ok(());
         }
@@ -187,9 +215,54 @@ fn apply_downloaded_update(app: tauri::AppHandle, update: DownloadedUpdate) -> R
     }
     #[cfg(not(unix))] { let _ = (app, lower_path); Err("manualInstall".into()) }
 }
+
+fn clear_update_cache(cache_root: &std::path::Path) -> std::io::Result<()> {
+    let updates = cache_root.join("updates");
+    match std::fs::symlink_metadata(&updates) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+        Ok(metadata) if !metadata.is_dir() || metadata.file_type().is_symlink() => {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Update cache is not a regular directory"));
+        }
+        Ok(_) => {}
+    }
+    std::fs::remove_dir_all(updates)
+}
+
+fn cleanup_installed_update(app: &tauri::AppHandle) {
+    let result = app.path().app_cache_dir().map_err(|error| error.to_string())
+        .and_then(|root| clear_update_cache(&root).map_err(|error| error.to_string()));
+    match result {
+        Ok(()) => crate::core::logger::log_launcher(app, "INFO", "Pacotes temporários removidos após instalação da atualização"),
+        Err(error) => crate::core::logger::log_launcher(app, "WARN", &format!("Atualização instalada, mas não foi possível limpar o cache de downloads: {error}")),
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn successful_install_cleanup_is_scoped_to_updates() {
+        let root = std::env::temp_dir().join(format!("dlssnr-update-cleanup-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(root.join("updates")).unwrap();
+        std::fs::write(root.join("updates/current.rpm"), b"package").unwrap();
+        std::fs::write(root.join("updates/old.deb"), b"old package").unwrap();
+        std::fs::write(root.join("other-cache.json"), b"keep").unwrap();
+        clear_update_cache(&root).unwrap();
+        assert!(!root.join("updates").exists());
+        assert!(root.join("other-cache.json").exists());
+        clear_update_cache(&root).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[cfg(unix)]
+    #[test]
+    fn update_cleanup_rejects_redirected_directories() {
+        let root = std::env::temp_dir().join(format!("dlssnr-update-link-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(root.join("keep")).unwrap();
+        std::os::unix::fs::symlink(root.join("keep"), root.join("updates")).unwrap();
+        assert!(clear_update_cache(&root).is_err());
+        assert!(root.join("keep").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test] fn version_ordering() { assert!(is_newer("v0.10.0", "0.7.0").unwrap()); assert!(!is_newer("v0.7.0", "0.7.0").unwrap()); assert!(!is_newer("v0.6.0", "0.7.0").unwrap()); assert!(is_newer("bad", "0.7.0").is_err()); }
     #[test] fn package_filters() { if std::env::consts::ARCH == "x86_64" { assert!(compatible("Launcher_0.8.0_amd64.deb")); assert!(compatible("Launcher-0.8.0-1.x86_64.rpm")); assert!(compatible("Launcher_0.8.0_amd64.AppImage")); assert!(!compatible("Launcher_aarch64.AppImage")); } assert!(!compatible("../bad_amd64.deb")); assert!(!compatible("source_amd64.zip")); }
 }

@@ -2,12 +2,14 @@ export type Language = "pt" | "en";
 
 export const translations = {
   pt: {
+    upscalerInfo: { title: "Upscalers", notFound: "Não identificado", evidence: "Tecnologias identificadas nos arquivos do jogo. Não encontrar arquivos não confirma ausência de suporte.", recommended: "Recomendado" },
+    neuralStartup: { title: "DLSS 5 NR", enabled: "Ativado", disabled: "Desativado", hint: "Define se a caixa do DLSS 5 NR começa marcada ao abrir o jogo. O mod continua carregado e o efeito pode ser ativado pelo menu dentro do jogo. A alteração vale para a próxima inicialização do jogo.", nextLaunch: "Salvo para a próxima inicialização do jogo.", error: "Não foi possível salvar a configuração." },
     launcherUpdate: {
       automaticPackage: "Pacote selecionado automaticamente",
       "title": "Atualizar programa",
-      "noneAvailable": "Não há atualizações disponíveis.",
+      "noneAvailable": "Não há atualizações disponíveis. Clique para verificar novamente.",
       "updateNotification": "Nova atualização disponível. Clique para atualizar.",
-      "checkFailed": "Não foi possível verificar atualizações. A busca será tentada novamente na próxima abertura.",
+      "checkFailed": "Não foi possível verificar atualizações. Clique para tentar novamente.",
       "current": "Versão instalada:",
       "checking": "Verificando atualizações…",
       "noRelease": "Ainda não há uma versão publicada neste repositório.",
@@ -336,12 +338,14 @@ export const translations = {
     }
   },
   en: {
+    upscalerInfo: { title: "Upscalers", notFound: "Not identified", evidence: "Technologies identified in the game files. Missing files do not confirm a lack of support.", recommended: "Recommended" },
+    neuralStartup: { title: "DLSS 5 NR", enabled: "Enabled", disabled: "Disabled", hint: "Sets whether the DLSS 5 NR checkbox starts checked when launching the game. The mod stays loaded and the effect can be enabled from the in-game menu. Changes apply to the next game launch.", nextLaunch: "Saved for the next game launch.", error: "Could not save the setting." },
     launcherUpdate: {
       automaticPackage: "Automatically selected package",
       "title": "Update application",
-      "noneAvailable": "No updates available.",
+      "noneAvailable": "No updates available. Click to check again.",
       "updateNotification": "New update available. Click to update.",
-      "checkFailed": "Could not check for updates. A new check will run the next time you open the application.",
+      "checkFailed": "Could not check for updates. Click to try again.",
       "current": "Installed version:",
       "checking": "Checking for updates…",
       "noRelease": "No release has been published in this repository yet.",

@@ -21,4 +21,5 @@ export interface InstallerPayload {
   dllPath: string | null;
   binPath: string | null;
   shortcutKey?: string;
+  neuralStartup?: boolean;
 }

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650">
+<defs><radialGradient id="sky"><stop stop-color="#cb3216"/><stop offset=".5" stop-color="#47120f"/><stop offset="1" stop-color="#100b15"/></radialGradient><linearGradient id="lava" x2="0" y2="1"><stop stop-color="#ffcb65"/><stop offset=".3" stop-color="#dc3712"/><stop offset="1" stop-color="#2e090d"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="14"/></filter></defs>
+<path fill="url(#sky)" d="M0 0h900v650H0z"/><ellipse cx="450" cy="510" rx="310" ry="100" fill="#e94d13" opacity=".4" filter="url(#glow)"/>
+<path fill="#160e13" d="m0 450 100-80 50 45 70-160 120 190 100-80 120 65 80-180 50 80 60-40 150 140v220H0z"/>
+<path fill="url(#lava)" d="m640 250-33 137 30 67-90 38 50 40-130 118h190l-40-100 60-59-82-65 45-61z"/>
+<path fill="#0b090f" d="m0 520 150-60 130 90 95-45 70 145H0zm900-70-110 80-100-25-95 145h305z"/>
+<g fill="#ffad53" opacity=".7"><circle cx="140" cy="160" r="2"/><circle cx="780" cy="120" r="2"/><circle cx="710" cy="350" r="3"/><circle cx="290" cy="90" r="2"/><circle cx="520" cy="210" r="2"/><circle cx="350" cy="470" r="3"/></g></svg>

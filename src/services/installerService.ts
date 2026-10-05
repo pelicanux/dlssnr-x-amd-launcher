@@ -16,6 +16,7 @@ export const runInstallation = async (payload: InstallerPayload): Promise<string
     dllPath: payload.dllPath,
     binPath: payload.binPath,
     shortcutKey: payload.shortcutKey || "Insert",
+    neuralStartup: payload.neuralStartup ?? null,
   });
 };
 

@@ -11,3 +11,6 @@ mod store_artwork;
 pub mod app_updates;
 
 pub mod gpu;
+
+mod upscalers;
+pub mod neural_settings;

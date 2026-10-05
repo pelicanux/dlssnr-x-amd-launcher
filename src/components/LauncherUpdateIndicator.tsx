@@ -4,11 +4,12 @@ import { DownloadProgressRing } from "./DownloadProgressRing";
 import { formatDownloadSpeed } from "../services/launcherUpdates";
 import type { LauncherDownloadProgress, LauncherUpdateStatus } from "../services/launcherUpdates";
 
-export function LauncherUpdateIndicator({ status, disabled, onOpen, downloadProgress }: {
+export function LauncherUpdateIndicator({ status, disabled, onOpen, onCheck, downloadProgress }: {
   status: LauncherUpdateStatus;
   disabled?: boolean;
   downloadProgress?: LauncherDownloadProgress | null;
   onOpen: () => void;
+  onCheck: () => void;
 }) {
   const { t, language } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -30,15 +31,13 @@ export function LauncherUpdateIndicator({ status, disabled, onOpen, downloadProg
   return <div ref={root} data-tauri-drag-region="false"
     className={`launcher-update-indicator launcher-update-${status} ${menuOpen ? "menu-open" : ""} ${downloadProgress ? "launcher-update-downloading" : ""}`}
     style={{ opacity: disabled && !downloadProgress && status !== "checking" ? .3 : 1 }}
-    tabIndex={!available && !disabled ? 0 : undefined}
-    aria-label={!available ? tip : undefined}
     onKeyDown={event => {
       if (event.key === "Escape" && menuOpen) { event.stopPropagation(); setMenuOpen(false); trigger.current?.focus(); }
     }}>
     <button ref={trigger} type="button" className="btn-titlebar launcher-update-button"
-      disabled={disabled || !available || !!downloadProgress} aria-label={tip} aria-describedby="launcher-update-tooltip"
+      disabled={disabled || status === "checking" || !!downloadProgress} aria-label={tip} aria-describedby="launcher-update-tooltip"
       aria-haspopup={available ? "menu" : undefined} aria-expanded={available ? menuOpen : undefined}
-      onClick={() => setMenuOpen(open => !open)}>
+      onClick={() => { if (available) setMenuOpen(open => !open); else onCheck(); }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
       {status === "checking" && <span className="launcher-update-ring" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeDasharray="18 58" strokeLinecap="round"/></svg></span>}
       {downloadProgress && <span className="launcher-download-ring"><DownloadProgressRing percent={downloadProgress.percent}/></span>}

@@ -1,3 +1,4 @@
+import { useNeuralStartup } from "./hooks/useNeuralStartup";
 import { isInstalledMod } from "./services/installationStatus";
 import { CoverContextMenuPanel, SteamGridCoverHint } from "./components/CoverContextMenu";
 import { changeLocalCover, resetGameCover, reportCoverError } from "./services/customCovers";
@@ -25,7 +26,7 @@ import { InstallAction } from "./components/InstallAction";
 import { ResultModal } from "./components/ResultModal";
 import { UninstallModal } from "./components/UninstallModal";
 import { LauncherUpdateIndicator } from "./components/LauncherUpdateIndicator";
-import { checkLauncherUpdateOnStartup, type LauncherDownloadProgress, type LauncherUpdateInfo, type LauncherUpdateStatus } from "./services/launcherUpdates";
+import { checkLauncherUpdate, checkLauncherUpdateOnStartup, type LauncherDownloadProgress, type LauncherUpdateInfo, type LauncherUpdateStatus } from "./services/launcherUpdates";
 import { AppUpdateModal } from "./components/AppUpdateModal";
 import { BackendUpdaterModal } from "./components/BackendUpdaterModal";
 import { LoadingModal } from "./components/LoadingModal";
@@ -82,6 +83,21 @@ function App() {
   const [launcherDownloadProgress, setLauncherDownloadProgress] = useState<LauncherDownloadProgress | null>(null);
   const [launcherUpdateInfo, setLauncherUpdateInfo] = useState<LauncherUpdateInfo | null>(null);
   const [launcherUpdateStatus, setLauncherUpdateStatus] = useState<LauncherUpdateStatus>("checking");
+  const manualUpdateCheck = useRef(false);
+  const checkUpdatesManually = async () => {
+    if (manualUpdateCheck.current || launcherUpdateStatus === "checking") return;
+    manualUpdateCheck.current = true;
+    setLauncherUpdateStatus("checking");
+    try {
+      const info = await checkLauncherUpdate();
+      setLauncherUpdateInfo(info);
+      setLauncherUpdateStatus(info.available ? "available" : "current");
+    } catch {
+      setLauncherUpdateStatus("error");
+    } finally {
+      manualUpdateCheck.current = false;
+    }
+  };
   useEffect(() => {
     let active = true;
     checkLauncherUpdateOnStartup().then(info => {
@@ -102,11 +118,6 @@ function App() {
   const changeInstallRoute = (nextRoute: InstallRoute) => {
     if (nextRoute === route) return;
     setRoute(nextRoute);
-    if (appConfig) {
-      const nextConfig = { ...appConfig, shortcut_key: defaultShortcutForRoute(nextRoute) };
-      setAppConfig(nextConfig);
-      invoke("save_app_config", { config: nextConfig }).catch(console.error);
-    }
   };
 
   const [showSettings, setShowSettings] = useState(false);
@@ -220,14 +231,11 @@ function App() {
         gpuArch,
         dllPath: appConfig.dll_version.endsWith('.dll') ? appConfig.dll_version : null,
         binPath: appConfig.dll_version.endsWith('.bin') ? appConfig.dll_version : null,
-        shortcutKey: appConfig?.shortcut_key || defaultShortcutForRoute(route)
+        shortcutKey: appConfig?.game_shortcut_keys?.[gameDir] || defaultShortcutForRoute(route),
+        neuralStartup: neuralStartup.enabled
       });
       setLogs((prev) => prev + "\n" + localizeInstallationMessage(response, language));
 
-      // Refresh install status
-      if (selectedGame && selectedGame.path === gameDir) {
-        await refreshInstallationDetails(gameDir);
-      }
 
       const isRepair = isInstalledMod(installStatus);
       setModalTitle(isRepair ? t("app", "repairSuccessTitle") : t("app", "installSuccessTitle"));
@@ -252,6 +260,10 @@ function App() {
       setModalType("error");
       setShowModal(true);
     } finally {
+      if (selectedGame?.path === gameDir) {
+        await refreshInstallationDetails(gameDir);
+        setGameInfoRevision(value => value + 1);
+      }
       setLoading(false);
       setLoadingMessage("");
     }
@@ -308,6 +320,7 @@ function App() {
       // Refresh status if selected game was uninstalled
       if (selectedGame && selectedGame.path === path) {
         await refreshInstallationDetails(path);
+        setGameInfoRevision(value => value + 1);
       }
     }
   };
@@ -357,11 +370,21 @@ function App() {
     return () => window.removeEventListener("gameInfoCacheCleared", refresh);
   }, []);
   const analysis = useGameAnalysis(selectedGame?.path, selectedGame?.name, selectedGame?.app_id || undefined, gameInfoRevision);
+  const upscalerFamilies = [...new Set((analysis.upscalers ?? []).map(name => {
+    const family = name.trim().match(/^(DLSS|FSR|XeSS)(?=$|[\s\d._-])/i)?.[1]?.toLowerCase();
+    return family === "dlss" ? "DLSS" : family === "fsr" ? "FSR" : family === "xess" ? "XeSS" : name;
+  }))];
+  const manualRoutes = useRef(new Map<string, InstallRoute>());
   const detectedBitness = analysis.architecture === "32-bits" ? "32" : analysis.architecture === "64-bits" ? "64" : null;
   useEffect(() => {
     if (detectedBitness) setBitness(detectedBitness);
   }, [selectedGame?.path, detectedBitness, gameInfoRevision]);
   const [installStatus, setInstallStatus] = useState<string>("Verificando...");
+  const recommendOptiscaler = detectedBitness === "64" && bitness === "64" && upscalerFamilies.some(name => ["DLSS", "FSR", "XeSS"].includes(name));
+  useEffect(() => {
+    if (selectedGame && recommendOptiscaler && !manualRoutes.current.has(selectedGame.path)) changeInstallRoute("optiscaler");
+  }, [selectedGame?.path, recommendOptiscaler]);
+  const neuralStartup = useNeuralStartup(selectedGame?.path, isInstalledMod(installStatus));
   const [installedDll, setInstalledDll] = useState<string | null>(null);
 
   useEffect(() => {
@@ -403,6 +426,8 @@ function App() {
       setInstallStatus("Verificando...");
       setInstalledDll(null);
       ++installationRequest.current;
+      const manualRoute = manualRoutes.current.get(game.path);
+      if (manualRoute) changeInstallRoute(manualRoute);
       setGameDir(game.path);
       setSelectedGame(game);
     }
@@ -478,6 +503,7 @@ function App() {
           onShowCredits={() => setShowCreditsModal(true)} 
           disabled={hasOpenDialog}
           updateIndicator={<LauncherUpdateIndicator status={launcherUpdateStatus} disabled={hasOpenDialog} downloadProgress={launcherDownloadProgress}
+            onCheck={checkUpdatesManually}
             onOpen={() => { setShowSettings(false); setShowAppUpdate(true); }} />}
           settingsMenu={
             <div style={{ position: "relative" }} ref={settingsRef}>
@@ -673,7 +699,7 @@ function App() {
                   )}
                   
                   <div style={{ width: "100%" }}>
-                    <InstallAction onInstall={handleInstall} onUninstall={handleUninstallClick} loading={loading} disabled={gpuArch === "rdna3" && bitness === "32"} installStatus={installStatus} />
+                    <InstallAction onInstall={handleInstall} onUninstall={handleUninstallClick} loading={loading} disabled={gpuArch === "rdna3" && bitness === "32"} temporarilyBlocked={neuralStartup.busy} installStatus={installStatus} />
                   </div>
                   
                   {isInstalledMod(installStatus) && (
@@ -740,6 +766,7 @@ function App() {
                   <span style={{ color: "#fff", fontWeight: "bold", fontSize: "0.95rem" }}>{t("gameInfo", "title")}</span>
                 </div>
                 <div className="game-info-fields">
+                  <div className="game-info-directory-row">
                   <span className="game-info-label"><MenuIcon name="folder" />{t("gameInfo", "directory")}</span>
                   <div className="game-directory-value">
                     {isEditingPath ? (
@@ -773,34 +800,47 @@ function App() {
                       </>
                     )}
                   </div>
-                  <span className="game-info-label"><MenuIcon name="calendar" />{t("gameInfo", "release")}</span><span className="info-value-pill" style={{ color: "#e2e8f0" }}>{releaseDate === "Desconhecido" ? t("gameInfo", "unknown") : (releaseDate === "Detectando..." ? "..." : releaseDate)}</span>
-                  <span className="game-info-label"><MenuIcon name="platform" />{t("gameInfo", "platform")}</span><span className="info-value-pill info-platform" style={{ color: "#e2e8f0" }}>{localizeAnalysisValue(analysis.platform)}</span>
-                  <span className="game-info-label"><MenuIcon name="chip" />{t("gameInfo", "architecture")}</span><span className="info-value-pill info-architecture" style={{ color: "#60a5fa", background: "rgba(96,165,250,0.1)", padding: "2px 6px", borderRadius: "4px", justifySelf: "start" }}>{localizeAnalysisValue(analysis.architecture)}</span>
-                  <span className="game-info-label"><MenuIcon name="graphics" />{t("gameInfo", "graphicsApi")}</span>
-                  <span className="info-value-pill info-api" style={{ color: "#c084fc", background: "rgba(192,132,252,0.1)", padding: "2px 6px", borderRadius: "4px", justifySelf: "start" }}>
-                    {localizeAnalysisValue(analysis.graphics_api)}
-                  </span>
-                  <span className="game-info-label"><MenuIcon name="puzzle" />{t("gameInfo", "modInstalled")}</span>
-                  <span className="info-value-pill info-mod-status" style={{ color: !isInstalledMod(installStatus) ? "#ef4444" : "#10b981", background: !isInstalledMod(installStatus) ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)", padding: "2px 6px", borderRadius: "4px", justifySelf: "start", fontWeight: "bold" }}>
-                    {installStatus === "Verificando..." ? t("gameInfo", "verifying") : (!isInstalledMod(installStatus) ? t("gameInfo", "no") : `${t("gameInfo", "yes")} (${installStatus.replace(/^Instalado\s*\((.*)\)$/, "$1")})`)}
-                  </span>
-                  
+                  </div>
+                  <div className="game-info-item">
+                    <span className="game-info-label"><MenuIcon name="calendar" />{t("gameInfo", "release")}</span>
+                    <span className="info-value-pill info-release">{releaseDate === "Desconhecido" ? t("gameInfo", "unknown") : (releaseDate === "Detectando..." ? "..." : releaseDate)}</span>
+                  </div>
+                  <div className="game-info-item">
+                    <span className="game-info-label"><MenuIcon name="platform" />{t("gameInfo", "platform")}</span>
+                    <span className="info-value-pill info-platform">{localizeAnalysisValue(analysis.platform)}</span>
+                  </div>
+                  <div className="game-info-item">
+                    <span className="game-info-label"><MenuIcon name="chip" />{t("gameInfo", "architecture")}</span>
+                    <span className="info-value-pill info-architecture">{localizeAnalysisValue(analysis.architecture)}</span>
+                  </div>
+                  <div className="game-info-item">
+                    <span className="game-info-label"><MenuIcon name="graphics" />{t("gameInfo", "graphicsApi")}</span>
+                    <span className="info-value-pill info-api">{localizeAnalysisValue(analysis.graphics_api)}</span>
+                  </div>
+                  <div className="game-info-item">
+                    <span className="game-info-label"><MenuIcon name="puzzle" />{t("gameInfo", "modInstalled")}</span>
+                    <span className="info-value-pill info-mod-status" style={{ color: !isInstalledMod(installStatus) ? "#ef4444" : "#10b981", background: !isInstalledMod(installStatus) ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)", fontWeight: "bold" }}>
+                      {installStatus === "Verificando..." ? t("gameInfo", "verifying") : (!isInstalledMod(installStatus) ? t("gameInfo", "no") : `${t("gameInfo", "yes")} (${installStatus.replace(/^Instalado\s*\((.*)\)$/, "$1")})`)}
+                    </span>
+                  </div>
+                  <div className="game-info-item" title={t("upscalerInfo", "evidence")}>
+                    <span className="game-info-label"><MenuIcon name="graphics" />{t("upscalerInfo", "title")}</span>
+                    <span className={`info-value-pill info-upscalers ${upscalerFamilies.length > 0 ? "detected" : ""}`}>
+                      {analysis.architecture === "Verificando..." ? t("gameInfo", "verifying") : upscalerFamilies.length ? upscalerFamilies.join(" · ") : t("upscalerInfo", "notFound")}
+                    </span>
+                  </div>
                   {isInstalledMod(installStatus) && (
                     <>
-                      <motion.span initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="game-info-label"><MenuIcon name="document" />{t("gameInfo", "injectedDll")}</motion.span>
-                      <motion.span initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="info-value-pill info-architecture" style={{ color: "#60a5fa", fontFamily: "monospace", padding: "2px 6px", background: "rgba(96, 165, 250, 0.1)", borderRadius: "4px", justifySelf: "start" }}>
-                        {installedDll || t("gameInfo", "unknown")}
-                      </motion.span>
-                      
-                      <motion.span initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="game-info-label"><MenuIcon name="logs" />{t("gameInfo", "gameLogs")}</motion.span>
-                      <motion.a initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }}
-                        onClick={() => {
-                          invoke("collect_and_open_logs", { gameName: selectedGame.name, gameDir: selectedGame.path }).catch((e: any) => console.error("Error opening logs:", e));
-                        }}
-                        style={{ color: "#fbbf24", textDecoration: "underline", cursor: "pointer", justifySelf: "start" }}
-                      >
-                        {t("gameInfo", "openLogs")}
-                      </motion.a>
+                      <motion.div initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="game-info-item">
+                        <span className="game-info-label"><MenuIcon name="document" />{t("gameInfo", "injectedDll")}</span>
+                        <span className="info-value-pill info-injected-dll" style={{ fontFamily: "monospace" }}>{installedDll || t("gameInfo", "unknown")}</span>
+                      </motion.div>
+                      <motion.div initial={performanceMode ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: performanceMode ? 0 : 0.2 }} className="game-info-item">
+                        <span className="game-info-label"><MenuIcon name="logs" />{t("gameInfo", "gameLogs")}</span>
+                        <a className="info-value-pill info-game-logs" onClick={() => {
+                          invoke("collect_and_open_logs", { gameName: selectedGame.name, gameDir: selectedGame.path }).catch((error: unknown) => console.error("Error opening logs:", error));
+                        }}>{t("gameInfo", "openLogs")}</a>
+                      </motion.div>
                     </>
                   )}
                 </div>
@@ -827,9 +867,13 @@ function App() {
                     <MenuIcon name="cube" />
                     <span style={{ fontSize: "0.85rem", color: "#94a3b8" }}>{t("routeSelector", "title")}</span>
                   </div>
-                  <RouteSelector route={route} setRoute={changeInstallRoute} bitness={bitness} />
+                  <RouteSelector route={route} recommended={recommendOptiscaler} setRoute={value => {
+                    if (selectedGame) manualRoutes.current.set(selectedGame.path, value);
+                    changeInstallRoute(value);
+                  }} bitness={bitness} />
                 </div>
 
+                <div className="mod-startup-controls">
                 {/* ShortcutKeySelector */}
                 <div className="mod-control-group mod-shortcut-group" style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "0.5rem", opacity: !isInstalledMod(installStatus) ? 0.4 : 1, pointerEvents: !isInstalledMod(installStatus) ? "none" : "auto" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -838,20 +882,33 @@ function App() {
                   </div>
                   <ShortcutKeySelector 
                     route={route}
-                    shortcutKey={appConfig?.shortcut_key || defaultShortcutForRoute(route)}
+                    shortcutKey={appConfig?.game_shortcut_keys?.[gameDir] || defaultShortcutForRoute(route)}
                     setShortcutKey={(val) => {
-                      if (appConfig) {
-                        const newConfig = { ...appConfig, shortcut_key: val };
+                      if (appConfig && selectedGame && isInstalledMod(installStatus)) {
+                        const newConfig = {
+                          ...appConfig,
+                          game_shortcut_keys: { ...appConfig.game_shortcut_keys, [selectedGame.path]: val },
+                        };
                         setAppConfig(newConfig);
                         invoke("save_app_config", { config: newConfig }).catch(err => console.error("Failed to save config:", err));
-                        if (selectedGame && (isInstalledMod(installStatus))) {
-                          invoke("update_shortcut_key_in_game", { gameDir: selectedGame.path, shortcutKey: val })
-                            .catch(err => console.error("Failed to update shortcut in game:", err));
-                        }
+                        invoke("update_shortcut_key_in_game", { gameDir: selectedGame.path, shortcutKey: val })
+                          .catch(err => console.error("Failed to update shortcut in game:", err));
                       }
                     }}
                   />
                 </div>
+                <div className="mod-neural-startup" style={{ opacity: !isInstalledMod(installStatus) ? 0.4 : 1 }} title={t("neuralStartup", "hint")}>
+                  <span className="mod-neural-label"><MenuIcon name="neural" />{t("neuralStartup", "title")}</span>
+                  <button type="button" role="switch" aria-checked={neuralStartup.enabled} aria-label={t("neuralStartup", "title")}
+                    className={`neural-startup-switch ${neuralStartup.enabled ? "enabled" : ""}`} disabled={!isInstalledMod(installStatus) || loading || neuralStartup.initializing || installStatus === "Verificando..."}
+                    onClick={() => void neuralStartup.change(!neuralStartup.enabled)}>
+                    <span className="neural-switch-track" aria-hidden="true"><span /></span>
+                    <span>{t("neuralStartup", neuralStartup.enabled ? "enabled" : "disabled")}</span>
+                  </button>
+                </div>
+                </div>
+                {neuralStartup.feedback && <p role="status" className="neural-startup-feedback">{t("neuralStartup", neuralStartup.feedback)}</p>}
+                {neuralStartup.error && <p role="alert" className="neural-startup-error">{t("neuralStartup", "error")} {neuralStartup.error}</p>}
               </div>
             </div>
           </div>
@@ -918,7 +975,10 @@ function App() {
         allowCancel={appConfig !== null}
         onCancel={() => setShowSetupWizard(false)}
         onComplete={(config) => {
-          setAppConfig(config);
+          setAppConfig(previous => ({
+            ...config,
+            game_shortcut_keys: { ...previous?.game_shortcut_keys, ...config.game_shortcut_keys },
+          }));
           setShowSetupWizard(false);
         }} 
       />

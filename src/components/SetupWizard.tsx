@@ -7,12 +7,14 @@ import { ModelSourceSelector } from "./ModelSourceSelector";
 import { ModelSource } from "../types/installer";
 
 import { useI18n } from "../i18n/I18nContext";
+import { EmergencyResetFlow } from "./EmergencyResetFlow";
 
 export interface AppConfig {
   steamgriddb_api_key?: string;
   backend: string;
   dll_version: string;
   shortcut_key: string;
+  game_shortcut_keys?: Record<string, string>;
   custom_game_paths?: Record<string, string>;
 }
 
@@ -64,6 +66,7 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
   const [hasCachedBin, setHasCachedBin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const [emergencyStage, setEmergencyStage] = useState(0);
 
   // Download state
   const [isDownloading, setIsDownloading] = useState(false);
@@ -242,6 +245,10 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
         
         {/* Top Right Controls */}
         <div style={{ position: "absolute", top: "2rem", right: "2.5rem", zIndex: 50, display: "flex", gap: "0.8rem", alignItems: "center" }}>
+          <button className="wizard-emergency-trigger" disabled={isDownloading || loading || extractingDll}
+            aria-expanded={emergencyStage > 0} onClick={() => { setShowLangDropdown(false); setEmergencyStage(value => value ? 0 : 1); }}>
+            <span aria-hidden="true">⚠</span> {language === "en" ? "Emergency" : "Emergência"}
+          </button>
           
           {/* Language Selector */}
           <div style={{ position: "relative" }}>
@@ -297,13 +304,14 @@ export const SetupWizard: React.FC<Props> = ({ onComplete, allowCancel, onCancel
           )}
         </div>
 
-        <h2 style={{ margin: "0 0 0.5rem 0", color: "#ffffff", fontFamily: "'Rajdhani', sans-serif", fontSize: "2.5rem", paddingRight: "80px" }}>
+        <h2 style={{ margin: "0 0 0.5rem 0", color: "#ffffff", fontFamily: "'Rajdhani', sans-serif", fontSize: "2.5rem", paddingRight: "280px" }}>
           {t("setupWizard", "title")}
         </h2>
         <p style={{ color: "#94a3b8", marginBottom: "2rem" }}>
           {t("setupWizard", "subtitle")}
         </p>
         
+        <EmergencyResetFlow stage={emergencyStage} onStage={setEmergencyStage} />
         <div role="status" aria-live="polite" style={{ padding: "1rem", marginBottom: "1.2rem", borderRadius: "10px", border: `1px solid ${gpuCompatible ? "#10b98166" : "#f8717166"}`, background: "rgba(255,255,255,0.03)", color: gpuCompatible ? "#6ee7b7" : "#fca5a5" }}>
           {detectingGpu ? t("setupWizard", "gpuChecking") : <>
             {gpus.length > 0 && <div>{t("setupWizard", "gpuDetected")}: {gpus.map(gpu => gpu.model).join(" · ")}</div>}

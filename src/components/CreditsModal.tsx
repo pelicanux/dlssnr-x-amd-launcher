@@ -174,7 +174,7 @@ export const CreditsModal: React.FC<Props> = ({ onClose }) => {
 
           <div 
             style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "8px", padding: "0.6rem 0.8rem", cursor: "pointer", transition: "all 0.2s" }}
-            onClick={() => handleLink("https://github.com/pelicanux")}
+            onClick={() => handleLink("https://github.com/pelicanux/dlssnr-x-amd-launcher")}
             onMouseOver={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
             onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
           >
@@ -183,7 +183,7 @@ export const CreditsModal: React.FC<Props> = ({ onClose }) => {
             </div>
             <div style={{ flex: 1, overflow: "hidden" }}>
               <div style={{ color: "#fff", fontWeight: "bold", fontSize: "0.9rem" }}>Frontend</div>
-              <div style={{ color: "#94a3b8", fontSize: "0.75rem", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>github.com/pelicanux</div>
+              <div style={{ color: "#94a3b8", fontSize: "0.75rem", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>pelicanux / dlssnr-x-amd-launcher</div>
             </div>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </div>

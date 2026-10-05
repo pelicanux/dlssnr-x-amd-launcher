@@ -9,6 +9,7 @@ interface Props {
   onUninstall: () => void;
   loading: boolean;
   disabled?: boolean;
+  temporarilyBlocked?: boolean;
   onShowInstructions?: () => void;
   installStatus?: string;
 }
@@ -17,15 +18,16 @@ interface Props {
  * Component for the primary installation button only.
  * The uninstall button is shown separately in the game info panel when mod is already installed.
  */
-export const InstallAction: React.FC<Props> = ({ onInstall, loading, disabled, installStatus }) => {
+export const InstallAction: React.FC<Props> = ({ onInstall, loading, disabled, temporarilyBlocked, installStatus }) => {
   const { t } = useI18n();
   const isInstalled = isInstalledMod(installStatus);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", height: "100%" }}>
       <button
         className={`primary ${isInstalled ? "repair-action" : ""}`}
-        onClick={onInstall}
+        onClick={() => { if (!temporarilyBlocked) onInstall(); }}
         disabled={loading || disabled}
+        aria-disabled={loading || disabled || temporarilyBlocked || undefined}
         style={{ width: "100%", fontSize: "1rem", padding: "0.75rem 1rem", whiteSpace: "nowrap" }}
       >
         {!loading && <MenuIcon name={isInstalled ? "repair" : "download"} />}

@@ -16,7 +16,10 @@ pub async fn install_mod(
     dll_path: Option<String>,
     bin_path: Option<String>,
     shortcut_key: String,
+    neural_startup: Option<bool>,
 ) -> Result<String, String> {
+    crate::core::logger::log_launcher(&app, "INFO", &format!("Operação no jogo: rota={route}, arquitetura={bitness}, GPU={gpu_arch}, diretório={game_dir}"));
+    let result = async {
     // Validate the selected model before copying resources or starting the installer.
     if route != "remove" {
         if let Some(ref bin) = bin_path {
@@ -32,7 +35,17 @@ pub async fn install_mod(
         return Err("Arquivos do backend não encontrados! Clique no botão de Atualizar no topo direito para baixar os arquivos necessários.".to_string());
     }
 
-    execute_standalone_install(&resource_path, &game_dir, &route, dll_path.as_ref(), bin_path.as_ref(), &shortcut_key)
+    let output = execute_standalone_install(&resource_path, &game_dir, &route, dll_path.as_ref(), bin_path.as_ref(), &shortcut_key)?;
+    if route != "remove" {
+        if let Some(enabled) = neural_startup {
+            super::neural_settings::set_enabled(std::path::Path::new(&game_dir), enabled)?;
+        }
+    }
+    Ok(output)
+    }.await;
+    super::analyzer::invalidate_game(&app, &game_dir);
+    crate::core::logger::log_result(&app, "Instalação/remoção do mod", &result);
+    result
 }
 
 #[tauri::command]
@@ -94,6 +107,13 @@ fn details_in_directory(dir: &std::path::Path) -> GameInstallationDetails {
     };
     let installed_dll = if status == "Não Instalado" { None } else { proxy.map(|name| (*name).to_string()) };
     GameInstallationDetails { status: status.to_string(), installed_dll }
+}
+
+pub(crate) fn installed_mod_directory(base_dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    if details_in_directory(base_dir).status != "Não Instalado" { return Some(base_dir.to_path_buf()); }
+    let exe = scan_directory_for_exe(base_dir)?;
+    let dir = exe.parent()?;
+    if details_in_directory(dir).status != "Não Instalado" { Some(dir.to_path_buf()) } else { None }
 }
 
 fn installation_details(game_dir: &str) -> GameInstallationDetails {

@@ -9,9 +9,10 @@ interface Props {
   route: InstallRoute;
   setRoute: (route: InstallRoute) => void;
   bitness: "32" | "64";
+  recommended?: boolean;
 }
 
-export const RouteSelector: React.FC<Props> = ({ route, setRoute, bitness }) => {
+export const RouteSelector: React.FC<Props> = ({ route, setRoute, bitness, recommended }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,7 +37,7 @@ export const RouteSelector: React.FC<Props> = ({ route, setRoute, bitness }) => 
           onClick={() => setIsOpen(!isOpen)}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem" }}>
-            <span style={{ fontWeight: 600 }}>{selectedOption.label}</span>
+            <span style={{ fontWeight: 600 }}>{selectedOption.label} {recommended && route === "optiscaler" && <small className="route-recommended">✓ {t("upscalerInfo", "recommended")}</small>}</span>
             <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>{selectedOption.desc}</span>
           </div>
           <div className="select-arrow">▼</div>
@@ -55,7 +56,7 @@ export const RouteSelector: React.FC<Props> = ({ route, setRoute, bitness }) => 
                   setIsOpen(false);
                 }}
               >
-                <span style={{ fontWeight: 600 }}>{opt.label}</span>
+                <span style={{ fontWeight: 600 }}>{opt.label} {recommended && opt.value === "optiscaler" && <small className="route-recommended">✓ {t("upscalerInfo", "recommended")}</small>}</span>
                 <span style={{ fontSize: "0.8rem", opacity: 0.7, marginLeft: "0.5rem" }}>{opt.desc}</span>
               </div>
             ))}

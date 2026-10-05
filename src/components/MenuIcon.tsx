@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
-type IconName = "folder" | "calendar" | "platform" | "chip" | "graphics" | "puzzle" | "logs" | "document" | "settings" | "cube" | "keyboard" | "download" | "repair" | "bolt";
+type IconName = "folder" | "calendar" | "platform" | "chip" | "graphics" | "puzzle" | "logs" | "document" | "settings" | "cube" | "keyboard" | "download" | "repair" | "bolt" | "neural";
 const drawings: Record<IconName, ReactNode> = {
+  neural: <><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="12" cy="12" r="3"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="m6.5 6.5 3.4 3.4m4.2 0 3.4-3.4m-7.6 7.6-3.4 3.4m7.6-3.4 3.4 3.4"/></>,
   bolt: <path d="m13 2-9 12h7l-1 8 10-13h-7l0-7Z"/>,
   folder: <><path d="M3 7V5a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v2"/><path d="M3 8h17a1 1 0 0 1 1 1l-2 10H3a1 1 0 0 1-1-1L3 8Z"/></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4m8-4v4M3 11h18M8 15h2m4 0h2M8 18h2m4 0h2"/></>,

@@ -148,6 +148,13 @@ pub fn cancel_update() {
 
 #[tauri::command]
 pub async fn update_backend(app: AppHandle, gpu_arch: String) -> Result<String, String> {
+    let logger_app = app.clone();
+    crate::core::logger::log_launcher(&logger_app, "INFO", &format!("Atualização do backend: GPU={gpu_arch}"));
+    let result = update_backend_inner(app, gpu_arch).await;
+    crate::core::logger::log_result(&logger_app, "Atualização do backend", &result);
+    result
+}
+async fn update_backend_inner(app: AppHandle, gpu_arch: String) -> Result<String, String> {
     CANCEL_DOWNLOAD.store(false, Ordering::SeqCst);
 
     let client = Client::builder()
@@ -245,6 +252,13 @@ pub async fn update_backend(app: AppHandle, gpu_arch: String) -> Result<String, 
 
 #[tauri::command]
 pub async fn delete_backend(app: AppHandle, gpu_arch: String) -> Result<String, String> {
+    let logger_app = app.clone();
+    crate::core::logger::log_launcher(&logger_app, "INFO", &format!("Exclusão do backend: GPU={gpu_arch}"));
+    let result = delete_backend_inner(app, gpu_arch).await;
+    crate::core::logger::log_result(&logger_app, "Exclusão do backend", &result);
+    result
+}
+async fn delete_backend_inner(app: AppHandle, gpu_arch: String) -> Result<String, String> {
     let backend_dir = get_backend_dir(&app)?.join(&gpu_arch);
     if backend_dir.exists() {
         fs::remove_dir_all(&backend_dir).map_err(|e| format!("Falha ao apagar pasta: {}", e))?;

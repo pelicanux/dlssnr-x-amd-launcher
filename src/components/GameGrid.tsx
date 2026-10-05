@@ -32,6 +32,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
   const [libraryLoaded, setLibraryLoaded] = useState(cachedGames !== null);
   const startupHandled = useRef(false);
   const scanInProgress = useRef(false);
+  const pendingScanFolders = useRef<string[] | null>(null);
   useEffect(() => {
     if (libraryLoaded) saveGameLibrary(games);
   }, [games, libraryLoaded]);
@@ -60,21 +61,27 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
 
   const [fallbackAttempted, setFallbackAttempted] = useState<Set<string>>(new Set());
 
-  const fetchGames = async () => {
-    if (scanInProgress.current) return;
+  const fetchGames = async (folders: string[] = customFolders) => {
+    if (scanInProgress.current) {
+      pendingScanFolders.current = folders;
+      return;
+    }
     scanInProgress.current = true;
     setLoading(true);
     setImageErrors(new Set());
     setFallbackAttempted(new Set());
     try {
-      const result = await invoke<GameInfo[]>("scan_installed_games", { apiKey: STEAMGRIDDB_API_KEY, customFolders });
+      const result = await invoke<GameInfo[]>("scan_installed_games", { apiKey: STEAMGRIDDB_API_KEY, customFolders: folders });
       setGames(applyCustomCovers(result));
       setLibraryLoaded(true);
     } catch (e) {
       console.error("Failed to scan games", e);
     } finally {
       scanInProgress.current = false;
-      setLoading(false);
+      const pending = pendingScanFolders.current;
+      pendingScanFolders.current = null;
+      if (pending) void fetchGames(pending);
+      else setLoading(false);
     }
   };
 
@@ -84,6 +91,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
       const newFolders = [...customFolders, dir];
       setCustomFolders(newFolders);
       localStorage.setItem("custom_folders", JSON.stringify(newFolders));
+      await fetchGames(newFolders);
     }
   };
 
@@ -91,6 +99,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
     if (!startupHandled.current) {
       startupHandled.current = true;
       if (cachedGames === null) void fetchGames();
+      else void invoke("log_cached_library", { count: cachedGames.length }).catch(() => {});
     }
 
     const handleRefresh = (event: Event) => {
@@ -153,7 +162,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
         </button>
         <p style={{ margin: 0 }}>{t("app", "noGamesFound") || "Nenhum jogo suportado encontrado."}</p>
         <button 
-          onClick={fetchGames} 
+          onClick={() => void fetchGames()}
           style={{ padding: "0.6rem 1.2rem", marginTop: "1.5rem", display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "8px", cursor: "pointer", color: "white" }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 2.81-6.7L3 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 1 0-2.81 6.7L21 16"/></svg>
@@ -373,7 +382,7 @@ export const GameGrid: React.FC<Props> = ({ onSelectGame, selectedGamePath }) =>
               <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>{t("gameGrid", "folder")}</span>
             </button>
             <button 
-              onClick={fetchGames}
+              onClick={() => void fetchGames()}
               disabled={loading}
               title={t("gameGrid", "scanLibrary")}
               style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", color: loading ? "white" : "#94a3b8", cursor: loading ? "not-allowed" : "pointer", padding: "0.4rem 0.6rem", borderRadius: "6px", display: "flex", alignItems: "center", gap: "0.4rem", transition: "all 0.2s", opacity: loading ? 0.7 : 1 }}

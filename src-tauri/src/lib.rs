@@ -20,6 +20,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::gpu::detect_linux_gpus,
+            commands::neural_settings::get_neural_startup,
+            commands::neural_settings::set_neural_startup,
             commands::app_updates::check_launcher_update,
             commands::app_updates::download_launcher_update,
             commands::app_updates::restart_launcher_update,
@@ -50,7 +52,10 @@ pub fn run() {
             commands::config::save_app_config,
             commands::config::delete_app_config,
             commands::config::save_custom_game_path,
-            commands::config::clear_game_caches
+            commands::config::clear_game_caches,
+            commands::config::log_cached_library,
+            commands::config::emergency_reset_launcher,
+            commands::config::restart_after_emergency_reset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

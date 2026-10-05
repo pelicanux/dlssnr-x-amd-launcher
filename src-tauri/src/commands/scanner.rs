@@ -310,6 +310,7 @@ fn scan_custom(folders: Vec<String>) -> Vec<GameInfo> {
 
 #[tauri::command]
 pub async fn scan_installed_games(app: AppHandle, api_key: String, custom_folders: Option<Vec<String>>) -> Result<Vec<GameInfo>, String> {
+    crate::core::logger::log_launcher(&app, "INFO", "Varredura de jogos iniciada (Steam, Heroic e pastas manuais)");
     let home = app.path().home_dir().map_err(|e| e.to_string())?;
     
     let mut all_games = Vec::new();
@@ -389,6 +390,7 @@ pub async fn scan_installed_games(app: AppHandle, api_key: String, custom_folder
     // Sort alphabetically
     unique_games.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     
+    crate::core::logger::log_launcher(&app, "INFO", &format!("Varredura concluída: {} jogos, {} sem capa", unique_games.len(), unique_games.iter().filter(|game| game.cover_url.is_none()).count()));
     Ok(unique_games)
 }
 
@@ -480,78 +482,41 @@ pub async fn fetch_steam_release_date(app: tauri::AppHandle, app_id: String) -> 
     Ok(unknown)
 }
 
-fn log_action(message: &str) {
-    use std::io::{Read, Write};
-    let version = "0.5.0"; // hardcoded for now, or use env!("CARGO_PKG_VERSION")
-    
-    #[cfg(target_os = "linux")]
-    let config_dir = match std::env::var("HOME") {
-        Ok(home) => std::path::PathBuf::from(home).join(".config").join("dlssnr-x-amd"),
-        Err(_) => return,
-    };
-    
-    #[cfg(target_os = "windows")]
-    let config_dir = match std::env::var("APPDATA") {
-        Ok(appdata) => std::path::PathBuf::from(appdata).join("dlssnr-x-amd"),
-        Err(_) => return,
-    };
-    
-    if !config_dir.exists() {
-        let _ = fs::create_dir_all(&config_dir);
+// Delegate launch-mode selection to Steam instead of bypassing it with rungameid.
+// No executable, graphics API, or launch arguments come from the game analysis.
+fn steam_launch_uri(app_id: &str) -> Result<String, String> {
+    let id = app_id.parse::<u32>().map_err(|_| "Invalid Steam AppID".to_string())?;
+    if id == 0 || !app_id.bytes().all(|c| c.is_ascii_digit()) {
+        return Err("Invalid Steam AppID".to_string());
     }
-    
-    let log_file = config_dir.join("app.log");
-    
-    // Read existing lines if any
-    let mut lines = Vec::new();
-    if log_file.exists() {
-        if let Ok(content) = fs::read_to_string(&log_file) {
-            lines = content.lines().map(|s| s.to_string()).collect();
-        }
-    }
-    
-    // Append new line with timestamp
-    let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-        Ok(n) => n.as_secs(),
-        Err(_) => 0,
-    };
-    let new_line = format!("[v{}][ts:{}] {}", env!("CARGO_PKG_VERSION"), timestamp, message);
-    lines.push(new_line);
-    
-    // Keep only last 1000 lines
-    if lines.len() > 1000 {
-        lines = lines[lines.len() - 1000..].to_vec();
-    }
-    
-    // Write back
-    if let Ok(mut file) = std::fs::File::create(&log_file) {
-        let _ = file.write_all(lines.join("\n").as_bytes());
-        let _ = file.write_all(b"\n");
-    }
+    Ok(format!("steam://launch/{id}/dialog"))
 }
 
 #[tauri::command]
-pub async fn launch_game(path: String, app_id: Option<String>, launcher: String) -> Result<(), String> {
-    log_action(&format!("Attempting to open game/folder. Launcher: {}, Path: {}", launcher, path));
+pub async fn launch_game(app: AppHandle, path: String, app_id: Option<String>, launcher: String) -> Result<(), String> {
+    crate::core::logger::log_launcher(&app, "INFO", &format!("Abrindo jogo: launcher={launcher}, diretório={path}"));
     
-    if launcher == "Steam" && app_id.is_some() {
-        let id = app_id.unwrap();
-        log_action(&format!("Launching Steam AppID: {}", id));
+    if launcher == "Steam" {
+        let id = app_id.ok_or("Steam AppID unavailable")?;
+        let uri = steam_launch_uri(&id)?;
+        crate::core::logger::log_launcher(&app, "INFO", &format!("Solicitando inicialização à Steam sem argumentos extras: {uri}"));
         #[cfg(target_os = "linux")]
         let res = {
             let mut cmd = std::process::Command::new("xdg-open");
-            cmd.arg(format!("steam://rungameid/{}", id));
+            cmd.arg(&uri);
             cmd.env_remove("LD_LIBRARY_PATH");
             cmd.spawn()
         };
         #[cfg(target_os = "windows")]
-        let res = std::process::Command::new("cmd").args(["/c", "start", &format!("steam://rungameid/{}", id)]).spawn();
+        let res = std::process::Command::new("cmd").args(["/c", "start", &uri]).spawn();
         
         if let Err(e) = res {
-            log_action(&format!("Failed to spawn Steam process: {}", e));
+            let message = format!("Falha ao iniciar Steam: {e}");
+            crate::core::logger::log_launcher(&app, "ERROR", &message);
+            return Err(message);
         }
     } else {
-        log_action(&format!("Opening folder for Non-Steam game: {}", path));
+        crate::core::logger::log_launcher(&app, "INFO", &format!("Abrindo pasta de jogo fora da Steam: {}", path));
         #[cfg(target_os = "linux")]
         let res = {
             let mut cmd = std::process::Command::new("xdg-open");
@@ -563,7 +528,7 @@ pub async fn launch_game(path: String, app_id: Option<String>, launcher: String)
         let res = std::process::Command::new("explorer").arg(&path).spawn();
         
         if let Err(e) = res {
-            log_action(&format!("Failed to open folder: {}", e));
+            crate::core::logger::log_launcher(&app, "ERROR", &format!("Falha ao abrir pasta: {}", e));
         }
     }
     Ok(())
@@ -634,4 +599,19 @@ pub fn collect_and_open_logs(app: tauri::AppHandle, game_name: String, game_dir:
 
     // Open the logs directory
     open_folder(logs_dir.to_string_lossy().to_string())
+}
+
+
+#[cfg(test)]
+mod steam_launch_tests {
+    use super::steam_launch_uri;
+
+    #[test]
+    fn steam_selects_the_launch_mode_without_game_arguments() {
+        assert_eq!(steam_launch_uri("1623730").unwrap(), "steam://launch/1623730/dialog");
+        // AppIDs cannot inject launch arguments or change the selected Steam URI.
+        for invalid in ["", "0", "-1", "+1623730", "1623730 -dx11", "1623730//-dx12", "1623730/option1", "4294967296"] {
+            assert!(steam_launch_uri(invalid).is_err(), "accepted {invalid}");
+        }
+    }
 }

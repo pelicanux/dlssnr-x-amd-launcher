@@ -5,6 +5,7 @@ export interface GameAnalysisResult {
   platform: string;
   architecture: string;
   graphics_api: string;
+  upscalers?: string[];
 }
 
 const emptyAnalysis: GameAnalysisResult = {

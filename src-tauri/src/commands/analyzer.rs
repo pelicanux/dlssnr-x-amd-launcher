@@ -12,10 +12,14 @@ pub struct GameAnalysisResult {
     pub platform: String,
     pub architecture: String,
     pub graphics_api: String,
+    #[serde(default)]
+    pub upscalers: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct AnalysisCache {
+    #[serde(default)]
+    version: u32,
     entries: std::collections::HashMap<String, GameAnalysisResult>,
 }
 
@@ -37,6 +41,16 @@ fn save_cache(app: &AppHandle, cache: &AnalysisCache) {
     if let Ok(data) = serde_json::to_string(cache) {
         fs::write(cache_file, data).ok();
     }
+}
+
+// A mod operation changes libraries on disk. Prevent an older in-flight query
+// from restoring a stale result, while retaining the other games' cache entries.
+pub(crate) fn invalidate_game(app: &AppHandle, path: &str) {
+    let mut generation = crate::core::game_info_cache::lock_generation();
+    *generation = generation.wrapping_add(1);
+    let mut cache = load_cache(app);
+    cache.entries.remove(path);
+    save_cache(app, &cache);
 }
 
 pub fn scan_directory_for_exe(dir: &Path) -> Option<PathBuf> {
@@ -196,7 +210,7 @@ pub async fn analyze_game(app: AppHandle, path: String, name: Option<String>, ap
             load_cache(&worker_app)
         };
         if let Some(cached) = cache.entries.get(&worker_path) {
-            if cached.graphics_api != "Pesquisando..." && cached.graphics_api != "Verificando..." && cached.graphics_api != "Pesquisando API..." {
+            if cache.version == 1 && cached.upscalers.is_some() && cached.graphics_api != "Pesquisando..." && cached.graphics_api != "Verificando..." && cached.graphics_api != "Pesquisando API..." {
                 return (cached.clone(), true, false);
             }
         }
@@ -204,6 +218,7 @@ pub async fn analyze_game(app: AppHandle, path: String, name: Option<String>, ap
             platform: "Não detectada".to_string(),
             architecture: "Não detectada".to_string(),
             graphics_api: "Não detectada".to_string(),
+            upscalers: None,
         };
         let exe_path = scan_directory_for_exe(Path::new(&worker_path));
         if let Some(ref exe) = exe_path {
@@ -211,6 +226,7 @@ pub async fn analyze_game(app: AppHandle, path: String, name: Option<String>, ap
             result.platform = if is_exe { "Windows (Proton / Wine)" } else { "Linux Nativo" }.to_string();
             if let Some(arch) = analyze_pe_header(exe) { result.architecture = arch; }
         }
+        result.upscalers = Some(super::upscalers::detect(Path::new(&worker_path), exe_path.as_deref()));
         (result, false, exe_path.is_some())
     }).await.map_err(|error| error.to_string())?;
     if cached { return Ok(result); }
@@ -223,6 +239,8 @@ pub async fn analyze_game(app: AppHandle, path: String, name: Option<String>, ap
         let current_generation = crate::core::game_info_cache::lock_generation();
         if *current_generation != generation { return; }
         let mut cache = load_cache(&app);
+        if cache.version != 1 { cache.entries.clear(); }
+        cache.version = 1;
         cache.entries.insert(path, saved_result);
         save_cache(&app, &cache);
     }).await.map_err(|error| error.to_string())?;
